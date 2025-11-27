@@ -1,5 +1,8 @@
 from dash import Dash
 
+app = Dash(
+    __name__,
+    suppress_callback_exceptions=True,
+)
 
-app = Dash(__name__)
 app.title = "JBI100 Template"
