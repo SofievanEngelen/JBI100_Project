@@ -1,0 +1,325 @@
+import dash
+from dash import dcc, html, Input, Output
+import plotly.express as px
+import pandas as pd
+
+# ========== 1. Load data ==========
+df = pd.read_csv("df_mun.csv")
+
+COUNTRY_COL = "Country"
+HAS_REGION = "Region" in df.columns  # becomes True once you add Region column
+
+# ========== 2. Category -> Attribute definition (using your column names) ==========
+
+RAW_CATEGORIES = {
+    "Demographics": {
+        "Total population": "demo_Total_Population",
+        "Population growth rate (%)": "demo_Population_Growth_Rate",
+        "Birth rate (per 1,000)": "demo_Birth_Rate",
+        "Death rate (per 1,000)": "demo_Death_Rate",
+        "Net migration rate (per 1,000)": "demo_Net_Migration_Rate",
+        "Median age (years)": "demo_Median_Age",
+        "Sex ratio": "demo_Sex_Ratio",
+        "Infant mortality rate (per 1,000 births)": "demo_Infant_Mortality_Rate",
+        "Total fertility rate (births per woman)": "demo_Total_Fertility_Rate",
+        "Total literacy rate (%)": "demo_Total_Literacy_Rate",
+        "Male literacy rate (%)": "demo_Male_Literacy_Rate",
+        "Female literacy rate (%)": "demo_Female_Literacy_Rate",
+        "Youth unemployment rate (%)": "demo_Youth_Unemployment_Rate",
+    },
+    "Economy": {
+        "Real GDP (PPP, billion USD)": "econ_Real_GDP_PPP_billion_USD",
+        "GDP official exchange rate (billion USD)": "econ_GDP_Official_Exchange_Rate_billion_USD",
+        "Real GDP growth rate (%)": "econ_Real_GDP_Growth_Rate_percent",
+        "Real GDP per capita (USD)": "econ_Real_GDP_per_Capita_USD",
+        "Unemployment rate (%)": "econ_Unemployment_Rate_percent",
+        "Youth unemployment rate (%)": "econ_Youth_Unemployment_Rate_percent",
+        "Government budget (billion USD)": "econ_Budget_billion_USD",
+        "Budget surplus (billion USD)": "econ_Budget_Surplus_billion_USD",
+        "Budget deficit (% of GDP)": "econ_Budget_Deficit_percent_of_GDP",
+        "Public debt (% of GDP)": "econ_Public_Debt_percent_of_GDP",
+        "Exports (billion USD)": "econ_Exports_billion_USD",
+        "Imports (billion USD)": "econ_Imports_billion_USD",
+        "Exchange rate (local per USD)": "econ_Exchange_Rate_per_USD",
+        "Population below poverty line (%)": "econ_Population_Below_Poverty_Line_percent",
+    },
+    "Energy & Environment": {
+        "Electricity access (%)": "energy_electricity_access_percent",
+        "Electricity generating capacity (kW)": "energy_electricity_generating_capacity_kW",
+        "Coal production/consumption (metric tons)": "energy_coal_metric_tons",
+        "Petroleum (bbl per day)": "energy_petroleum_bbl_per_day",
+        "Refined petroleum products (bbl per day)": "energy_refined_petroleum_products_bbl_per_day",
+        "Refined petroleum exports (bbl per day)": "energy_refined_petroleum_exports_bbl_per_day",
+        "Refined petroleum imports (bbl per day)": "energy_refined_petroleum_imports_bbl_per_day",
+        "Natural gas (cubic meters)": "energy_natural_gas_cubic_meters",
+        "CO₂ emissions (Mt)": "energy_carbon_dioxide_emissions_Mt",
+    },
+    "Geography & Land": {
+        "Total area (sq km)": "geo_Area_Total",
+        "Land area (sq km)": "geo_Land_Area",
+        "Water area (sq km)": "geo_Water_Area",
+        "Land boundaries (km)": "geo_Land_Boundaries",
+        "Coastline length (km)": "geo_Coastline",
+        "Highest elevation (m)": "geo_Highest_Elevation",
+        "Lowest elevation (m)": "geo_Lowest_Elevation",
+        "Forest land (sq km)": "geo_Forest_Land",
+        "Other land (sq km)": "geo_Other_Land",
+        "Agricultural land (sq km)": "geo_Agricultural_Land",
+        "Arable land (% of agricultural land)": "geo_Arable_Land (%% of Total Agricultural Land)",
+        "Permanent crops (% of agricultural land)": "geo_Permanent_Crops (%% of Total Agricultural Land)",
+        "Permanent pasture (% of agricultural land)": "geo_Permanent_Pasture (%% of Total Agricultural Land)",
+        "Irrigated land (sq km)": "geo_Irrigated_Land",
+    },
+    "Government": {
+        # Only this is numeric; the others are mainly text, so we do not color by them
+        "Suffrage age (years)": "gov_Suffrage_Age",
+    },
+    "Infrastructure & Transport": {
+        "Airports with paved runways (count)": "trans_airports_paved_runways_count",
+        "Airports with unpaved runways (count)": "trans_airports_unpaved_runways_count",
+        "Heliports (count)": "trans_heliports_count",
+        "Roadways (km)": "trans_roadways_km",
+        "Railways (km)": "trans_railways_km",
+        "Waterways (km)": "trans_waterways_km",
+        "Gas pipelines (km)": "trans_gas_pipelines_km",
+        "Oil pipelines (km)": "trans_oil_pipelines_km",
+        "Refined product pipelines (km)": "trans_refined_products_pipelines_km",
+        "Water pipelines (km)": "trans_water_pipelines_km",
+    },
+}
+
+# Show ALL categories in the dropdown.
+CATEGORY_LIST = list(RAW_CATEGORIES.keys())
+
+# Flatten label -> column mapping, but only for columns that truly exist
+ATTRIBUTE_OPTIONS = {}
+for cat, attrs in RAW_CATEGORIES.items():
+    for label, col in attrs.items():
+        if col in df.columns:
+            ATTRIBUTE_OPTIONS[label] = col
+
+# Region dropdown:
+# - We always give continent options so you can choose the view.
+# - If you later add a Region column with these names, it will also be used for filtering + ranking.
+REGION_OPTIONS = [
+    "Global",      # full world
+    "Europe",
+    "Asia",
+    "Africa",
+    "North America",
+    "South America",
+    "Oceania",
+]
+
+# ========== 3. Build Dash app ==========
+
+app = dash.Dash(__name__)
+
+app.layout = html.Div(
+    style={"display": "flex", "flexDirection": "row", "height": "100vh"},
+    children=[
+        # ----- Left control panel -----
+        html.Div(
+            style={
+                "width": "260px",
+                "padding": "10px",
+                "borderRight": "1px solid #ccc",
+                "display": "flex",
+                "flexDirection": "column",
+                "gap": "15px",
+            },
+            children=[
+                html.Div([
+                    html.Label("Category"),
+                    dcc.Dropdown(
+                        id="category-dropdown",
+                        options=[{"label": c, "value": c} for c in CATEGORY_LIST],
+                        value=CATEGORY_LIST[0],
+                        clearable=False,
+                    ),
+                ]),
+                html.Div([
+                    html.Label("Attribute"),
+                    dcc.Dropdown(
+                        id="attr-dropdown",
+                        options=[],   # filled by callback based on category
+                        value=None,
+                        clearable=False,
+                    ),
+                ]),
+                html.Div([
+                    html.Label("Region / View"),
+                    dcc.Dropdown(
+                        id="region-dropdown",
+                        options=[{"label": r, "value": r} for r in REGION_OPTIONS],
+                        value="Global",
+                        clearable=False,
+                    ),
+                ]),
+                html.Div([
+                    html.Label("Search country"),
+                    dcc.Dropdown(
+                        id="search-country",
+                        options=[
+                            {"label": c, "value": c}
+                            for c in sorted(df[COUNTRY_COL].unique())
+                        ],
+                        placeholder="Search / select a country",
+                        clearable=True,
+                        searchable=True,
+                    ),
+                ]),
+            ],
+        ),
+        # ----- Right map panel -----
+        html.Div(
+            style={"flex": 1, "padding": "10px"},
+            children=[dcc.Graph(id="mun-map", style={"height": "100%"})],
+        ),
+    ],
+)
+
+# ========== 4. Callback: update Attribute dropdown when Category changes ==========
+
+@app.callback(
+    Output("attr-dropdown", "options"),
+    Output("attr-dropdown", "value"),
+    Input("category-dropdown", "value"),
+)
+def update_attr_dropdown(category):
+    """
+    When the user selects a category, populate the Attribute dropdown
+    with the attributes belonging to that category that actually exist
+    in df_mun.
+    """
+    attrs = RAW_CATEGORIES.get(category, {})
+    options = [
+        {"label": label, "value": col}
+        for label, col in attrs.items()
+        if col in df.columns
+    ]
+    value = options[0]["value"] if options else None
+    return options, value
+
+# ========== 5. Callback: update choropleth map ==========
+
+@app.callback(
+    Output("mun-map", "figure"),
+    Input("attr-dropdown", "value"),
+    Input("region-dropdown", "value"),
+    Input("search-country", "value"),
+)
+def update_map(attr_col, region_value, search_country):
+    """
+    Main callback to update the map when:
+    - attribute changes
+    - region / view changes
+    - selected country changes
+    """
+    dff = df.copy()
+
+    # Defensive: no attribute selected or column missing -> empty map
+    if attr_col is None or attr_col not in dff.columns:
+        return px.choropleth()
+
+    # Region filtering for ranking:
+    # Only possible if you have a Region column in df_mun.
+    if HAS_REGION and region_value != "Global":
+        dff = dff[dff["Region"] == region_value]
+
+    # Drop countries with NaN for the selected attribute
+    dff = dff[dff[attr_col].notna()]
+
+    # Compute rank (within region if available, otherwise global)
+    if HAS_REGION:
+        dff = dff.sort_values(["Region", attr_col], ascending=[True, False])
+        dff["Rank in region"] = (
+            dff.groupby("Region")[attr_col]
+               .rank(method="dense", ascending=False)
+               .astype(int)
+        )
+        custom_cols = ["Region", attr_col, "Rank in region"]
+    else:
+        dff = dff.sort_values(attr_col, ascending=False)
+        dff["Rank in region"] = (
+            dff[attr_col].rank(method="dense", ascending=False).astype(int)
+        )
+        custom_cols = [attr_col, "Rank in region"]
+
+    # Base choropleth (YlOrRd color scale)
+    fig = px.choropleth(
+        dff,
+        locations=COUNTRY_COL,
+        locationmode="country names",
+        color=attr_col,
+        hover_name=COUNTRY_COL,
+        custom_data=custom_cols,
+        projection="natural earth",
+        color_continuous_scale="YlOrRd",
+    )
+
+    # Find human-readable label for the current attribute
+    attr_label = next(
+        (label for label, col in ATTRIBUTE_OPTIONS.items() if col == attr_col),
+        attr_col,
+    )
+
+    # Custom hover text
+    if HAS_REGION:
+        hovertemplate = (
+            "<b>%{hovertext}</b><br>"
+            "Region: %{customdata[0]}<br>"
+            + attr_label + ": %{customdata[1]:,.2f}<br>"
+            "Rank in region: %{customdata[2]}<extra></extra>"
+        )
+    else:
+        hovertemplate = (
+            "<b>%{hovertext}</b><br>"
+            + attr_label + ": %{customdata[0]:,.2f}<br>"
+            "Rank: %{customdata[1]}<extra></extra>"
+        )
+    fig.update_traces(hovertemplate=hovertemplate)
+
+    # Search highlighting: show a big, obvious marker + text
+    if search_country:
+        highlight = dff[dff[COUNTRY_COL] == search_country]
+        if not highlight.empty:
+            fig.add_scattergeo(
+                locations=highlight[COUNTRY_COL],
+                locationmode="country names",
+                mode="markers+text",
+                text=highlight[COUNTRY_COL],
+                textposition="top center",
+                marker=dict(
+                    size=18,
+                    color="black",
+                    line=dict(width=2, color="white"),
+                ),
+                textfont=dict(size=14),
+                showlegend=False,
+            )
+
+    # Map scope / view based on region dropdown
+    scope_map = {
+        "Global": "world",
+        "Europe": "europe",
+        "Asia": "asia",
+        "Africa": "africa",
+        "North America": "north america",
+        "South America": "south america",
+        "Oceania": "world",  # plotly has no specific oceania scope
+    }
+    if region_value in scope_map:
+        fig.update_geos(scope=scope_map[region_value])
+
+    # Clean margins + colorbar title
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=0, b=0),
+        coloraxis_colorbar=dict(title=attr_label),
+    )
+    return fig
+
+
+# ========== 6. Run the app ==========
+if __name__ == "__main__":
+    app.run(debug=True, port=8050)
