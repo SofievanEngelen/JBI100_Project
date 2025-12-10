@@ -1,0 +1,334 @@
+/* ===========================
+   GLOBAL
+=========================== */
+html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    overflow: hidden;
+}
+
+body {
+    font-family: Arial, sans-serif;
+}
+
+/* ===========================
+   SIDEBAR
+=========================== */
+#left-panel,
+#map-left-panel {
+    width: 25%;
+    background-color: #F2F2F2;
+    padding: 20px;
+    overflow-y: auto;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+}
+
+.section-title {
+    font-size: 30px;
+    font-weight: 800;
+    margin-top: 0;
+    margin-bottom: 0;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.section-subtitle {
+    font-size: 15px;
+    font-weight: 800;
+    /*margin-top: 28px;*/
+    margin-bottom: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    position: relative;
+    padding-bottom: 10px;
+    border-top: 1px solid #D0D0D0;
+    padding-top: 18px;
+}
+
+/* blue underline accent */
+.section-subtitle::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    bottom: 0;
+    width: 45px;
+    height: 3px;
+    background-color: #4299e1;
+    border-radius: 2px;
+}
+
+
+/* Base button */
+.attr-btn {
+    flex: 1;
+    padding: 10px 0;
+    border-radius: 6px;
+    border: none;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    background-color: #4F4F4F;
+    color: white;
+    height: 40%;
+}
+
+
+/* Disabled version */
+.attr-btn:disabled,
+.disabled-btn {
+    background-color: #E5E5E5 !important;
+    color: #9A9A9A !important;
+    border: 1px solid #D5D5D5 !important;
+    cursor: not-allowed !important;
+}
+
+#scale-select-title:empty {
+    margin: 0;
+    padding: 0;
+}
+
+/* ===========================
+   FIXED NAV BUTTON
+=========================== */
+.switch-view-button {
+    padding: 12px;
+    background-color: #4a90e2;
+    border: none;
+    color: white;
+    width: 100%;
+    border-radius: 6px;
+    font-size: 16px;
+    cursor: pointer;
+}
+
+/* Search bar container inside map panel */
+#map-search-container {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+
+    width: 60%;
+    max-width: 40vw;
+
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+
+    padding: 0;
+    z-index: 10;
+}
+
+#search-inner-wrapper {
+    position: relative;
+    display: flex;
+    align-items: center;
+    width: 100%;
+    height: 48px;
+    padding: 0 12px 0 40px;   /* space for the magnifying glass */
+}
+
+.search-icon-svg {
+    display: block;
+    width: 18px;
+    height: 18px;
+    background-size: contain;
+    background-repeat: no-repeat;
+    background-image: url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' fill='none' stroke='%23777' stroke-width='2' stroke-linecap='round' stroke-linejoin='round' viewBox='0 0 24 24'>\
+<circle cx='11' cy='11' r='8'/>\
+<line x1='21' y1='21' x2='16.65' y2='16.65'/>\
+</svg>");
+}
+
+#search-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    pointer-events: none;
+}
+
+#map-search-container .Select {
+    width: 100% !important;   /* dropdown fills container */
+}
+
+#search-country {
+    width: 90%;
+}
+
+#search-country:hover {
+    cursor: text;
+}
+
+#search-country .Select-arrow,
+#search-country .Select-arrow-zone {
+    display: none !important;
+}
+
+#search-country .Select-control {
+    border-radius: 8px !important;
+    border: none !important;
+    box-shadow: none !important;
+    background-color: transparent !important;
+}
+
+#search-country .Select-placeholder {
+    color: #888 !important;
+    font-size: 16px;
+}
+
+#search-country .Select-value {
+    font-size: 16px;
+}
+
+#search-country .Select-input {
+    font-size: 16px !important;
+}
+
+#search-country:hover,
+#search-country .Select-control:hover,
+#search-country .Select-value:hover,
+#search-country .Select-placeholder:hover {
+    cursor: text !important;
+}
+
+#mun-map .geolayer path,
+#mun-map .geo path,
+#mun-map .main-svg .geolayer path,
+#mun-map .main-svg path,
+#mun-map .plot-container .geolayer path,
+#mun-map rect {
+    cursor: pointer !important;
+}
+
+/* Ensure the right panel allows absolute positioning */
+#map-right-panel {
+    position: relative;
+}
+
+
+#data-nav-button-container,
+#map-nav-button-container {
+    position: absolute;
+    bottom: 20px;
+    left: 20px;
+    right: 20px;
+}
+
+#bottom-nav-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* ===========================
+   TOP TABS
+=========================== */
+#top-tabs {
+    display: flex;
+    background-color: #4F4F4F;
+    height: 48px;
+    align-items: center;
+}
+
+/* Base tab */
+.top-tab {
+    background-color: #4F4F4F;
+    color: white;
+    border: none;
+    padding: 12px 28px;
+    font-size: 18px;
+    cursor: pointer;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    border-right: 1px solid #E5E5E5;
+}
+
+/* Hover state */
+.top-tab:hover {
+    background-color: #5A5A5A;
+}
+
+/* Active tab (same colour as sidebar) */
+.top-tab.active {
+    background-color: #F2F2F2 !important;
+    color: #000 !important;
+    font-weight: 700;
+
+    /* Remove bottom sliver */
+    border-bottom: none !important;
+
+    /* Match the light background fully */
+    height: calc(100% + 2px);   /* pushes tab down to fully cover background */
+    /*margin-bottom: -2px;        !* pulls tab downward to overlap parent bar *!*/
+
+}
+
+/* ===========================
+   MAP PANEL
+=========================== */
+#map-right-panel {
+    flex: 1;
+    padding: 20px;
+    overflow: hidden;
+}
+
+#map-right-panel .js-plotly-plot {
+    margin: 0 !important;
+}
+
+.grey-btn {
+    width: 40%;
+}
+
+/* ===========================
+   ATTRIBUTE BOX (empty state)
+=========================== */
+.attr-box {
+    border: 1px solid #D0D0D0;
+    background-color: #FFFFFF;
+    border-radius: 6px;
+    padding: 10px;
+    min-height: 70px;         /* creates the empty white area like screenshot */
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+/* ===========================
+   ATTRIBUTE BUTTONS
+=========================== */
+.attr-btn {
+    flex: 1;
+    padding: 10px;
+    border-radius: 4px;
+    border: none;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    height: 80%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Disabled (greyed out) */
+.disabled-btn,
+.attr-btn:disabled {
+    background-color: #E5E5E5 !important;
+    color: #9A9A9A !important;
+    border: 1px solid #D5D5D5 !important;
+    cursor: not-allowed !important;
+}
+
+/* Enabled / active */
+.attr-btn:not(.disabled-btn):not(:disabled) {
+    background-color: #4F4F4F;
+    color: #FFFFFF;
+}
+
+

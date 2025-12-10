@@ -1,23 +1,16 @@
+# jbi100_app/views/data_view.py
 from dash import html, dcc
+from jbi100_app.data_loader import CATEGORY_ATTRIBUTES
+from jbi100_app.data_loader import COUNTRY_TO_CONTINENT, COUNTRY_TO_REGION, ALL_COUNTRIES
 
 
-# COMPONENT FACTORY FUNCTIONS
-def make_tag_component(label: str,
-                       id_type: str,
-                       id_suffix: str,
-                       class_name: str = "tag",
-                       delete_class: str = "delete-btn") -> html.Div:
-    """
-    General-purpose tag builder.
+# ------------------------------
+# COMPONENT HELPERS
+# ------------------------------
 
-    :param label: Text displayed inside the tag.
-    :param id_type: Value for the 'type' field in pattern-matching callbacks.
-        (e.g., "delete-tag", "delete-geo-tag")
-    :param id_suffix: Unique index or identifier.
-    :param class_name: CSS class for the outer tag container.
-    :param delete_class: CSS class for the delete button.
-    :return: Dash component representing a tag with a delete button.
-    """
+def make_tag_component(label, id_type, id_suffix,
+                       class_name="tag",
+                       delete_class="delete-btn"):
     return html.Div(
         className=class_name,
         children=[
@@ -31,38 +24,36 @@ def make_tag_component(label: str,
     )
 
 
-def make_tag(label: str, id_suffix: str) -> html.Div:
+def make_tag(label, id_suffix):
     return make_tag_component(label, "delete-tag", id_suffix)
 
 
-def make_geo_tag(label: str, id_suffix: str) -> html.Div:
+def make_geo_tag(label, id_suffix):
     return make_tag_component(label, "delete-geo-tag", id_suffix)
 
 
-def make_tab(label: str) -> html.Button:
-    """
-    Create a top navigation tab button.
-
-    :param label: Label shown on the tab.
-    :return: A styled button acting as a top-level tab.
-    """
+def make_tab(label):
     return html.Button(
         label,
         id={"type": "top-tab", "tab": label.lower()},
-        className="top-tab"
+        className="top-tab",
+        style={"borderRadius": "0"}
     )
 
 
-def make_popup() -> html.Div:
-    """
-    Create the popup box for selecting new attributes.
+# ------------------------------
+# POPUP BUILDER
+# ------------------------------
 
-    :return: A popup modal containing a multi-select dropdown and action buttons.
-    """
+def make_popup():
+    category_options = [
+        {"label": c, "value": c} for c in CATEGORY_ATTRIBUTES.keys()
+    ]
+
     return html.Div(
         id="popup-box",
         style={
-            "width": "400px",
+            "width": "420px",
             "padding": "20px",
             "borderRadius": "10px",
             "backgroundColor": "white",
@@ -74,129 +65,133 @@ def make_popup() -> html.Div:
         children=[
             html.H3("Select attributes to add"),
 
-            dcc.Dropdown(
-                id="add-attribute-dropdown",
-                options=["Attribute A", "Attribute B", "Attribute C"],
-                multi=True,
-            ),
+            html.Div([
+                html.Label("Select Categories"),
+                dcc.Dropdown(
+                    id="popup-category-dropdown",
+                    options=category_options,
+                    multi=True,
+                ),
+                html.Br(),
 
-            # Required action buttons for callbacks
+                html.Label("Select Attributes"),
+                dcc.Dropdown(
+                    id="add-attribute-dropdown",
+                    options=[],
+                    multi=True,
+                ),
+            ]),
+
             html.Div(
-                style={
-                    "display": "flex",
-                    "justifyContent": "flex-end",
-                    "gap": "10px",
-                    "marginTop": "10px",
-                },
+                style={"display": "flex",
+                       "justifyContent": "flex-end",
+                       "gap": "10px"},
                 children=[
-                    html.Button(
-                        "Cancel",
-                        id="popup-cancel",
-                        className="popup-btn"
-                    ),
-                    html.Button(
-                        "Add",
-                        id="popup-add",
-                        className="popup-btn"
-                    ),
+                    html.Button("Cancel", id="popup-cancel", className="popup-btn"),
+                    html.Button("Add", id="popup-add", className="popup-btn"),
                 ],
             ),
         ],
     )
 
 
-def data_view_layout() -> html.Div:
-    """
-    Build the complete two-panel data view layout.
+# ------------------------------
+# DATA VIEW MAIN LAYOUT
+# ------------------------------
 
-    The layout includes:\n
-    – Left sidebar:
-        • Attribute tag management
-        • Geographic scale selection
-        • Geographic item picker (continent / region / country)
-    – Right panel:
-        • Navigation tabs
-        • Main content area showing active selections
-
-    :return: The full structured dashboard layout.
-    """
+def data_view_layout():
     return html.Div(
         id="data-view",
         style={"display": "flex", "height": "100vh"},
         children=[
 
-            # LEFT SIDEBAR
+            # LEFT PANEL
             html.Div(
                 id="left-panel",
                 style={
                     "width": "25%",
-                    "backgroundColor": "#b5d9ea",
-                    "padding": "10px",
+                    "backgroundColor": "#F2F2F2",
+                    "padding": "20px",
                     "display": "flex",
                     "flexDirection": "column",
-                    "gap": "20px",
+                    "position": "relative",
                     "overflowY": "auto",
                 },
                 children=[
 
-                    # Attribute selection area
-                    # #TODO: attach this to data so it automatically lists attributes
-                    html.Div([
-                        html.H3("Attributes", className="section-title"),
+                    html.H2("Data view", className="section-title"),
 
-                        # Storage for attribute tag values
-                        dcc.Store(id="attribute-tags-store", data=[]),
+                    # --- ATTRIBUTE SELECTION ---
+                    html.H4("Select Attributes", className="section-subtitle"),
 
-                        # Container where attribute tags are dynamically inserted
-                        html.Div(id="attr-tags", className="tag-container"),
+                    # Attribute tag storage
+                    dcc.Store(id="attribute-tags-store", data=[]),
 
-                        html.Button(children="+ Add new",
-                                    id="add-attribute",
-                                    className="add-button"),
+                    # Empty box styled like screenshot
+                    html.Div(
+                        id="attr-tags",
+                        className="attr-box",
+                        children=[],
+                    ),
 
-                        # Popup modal backdrop (hidden by default)
-                        html.Div(
-                            id="popup-backdrop",
-                            style={
-                                "position": "fixed",
-                                "top": 0,
-                                "left": 0,
-                                "width": "100%",
-                                "height": "100%",
-                                "backgroundColor": "rgba(0,0,0,0.4)",
-                                "display": "none",
-                                "justifyContent": "center",
-                                "alignItems": "center",
-                                "zIndex": 9999,
-                            },
-                            children=[make_popup()],
-                        ),
-                    ]),
+                    # Buttons row
+                    html.Div(
+                        style={"display": "flex", "gap": "10px", "place-items": "center"},
+                        children=[
+                            # Reset (starts disabled)
+                            html.Button(
+                                "Reset",
+                                id="reset-attributes",
+                                className="attr-btn disabled-btn",
+                                disabled=True
+                            ),
 
-                    # Geographic scale radio selector
-                    html.Div([
-                        html.H3("Geographical scale", className="section-title"),
-                        dcc.RadioItems(
-                            id="geo-scale",
-                            options=[
-                                {"label": "Global", "value": "global"},
-                                {"label": "Continent", "value": "continent"},
-                                {"label": "Region", "value": "region"},
-                                {"label": "Country", "value": "country"},
-                            ],
-                            value="global",
-                            className="radio-group",
-                        ),
-                    ]),
+                            # Add new (always enabled)
+                            html.Button(
+                                "+ Add new",
+                                id="add-attribute",
+                                className="attr-btn",
+                                disabled=False
+                            ),
+                        ],
+                    ),
 
-                    # Store for selected scale tags (continents/regions/countries)
+                    html.Div(
+                        id="popup-backdrop",
+                        style={
+                            "position": "fixed",
+                            "top": 0, "left": 0,
+                            "width": "100%", "height": "100%",
+                            "backgroundColor": "rgba(0,0,0,0.4)",
+                            "display": "none",
+                            "justifyContent": "center",
+                            "alignItems": "center",
+                            "zIndex": 9999,
+                        },
+                        children=[make_popup()],
+                    ),
+
+                    # --- GEOGRAPHICAL SCALE ---
+                    html.H4("Select Geographical Scale", className="section-subtitle"),
+
+                    dcc.RadioItems(
+                        id="geo-scale",
+                        options=[
+                            {"label": "Global", "value": "global"},
+                            {"label": "Continent", "value": "continent"},
+                            {"label": "Region", "value": "region"},
+                            {"label": "Country", "value": "country"},
+                        ],
+                        value="global",
+                        className="radio-group",
+                    ),
+
                     dcc.Store(id="scale-tags-store", data=[]),
 
-                    # Dropdown for selecting items at chosen geography level
                     html.Div(
                         id="select-scale-block",
                         children=[
-                            html.H3(id="scale-select-title", className="section-title"),
+                            html.H4(id="scale-select-title", className="section-subtitle"),
 
                             dcc.Dropdown(
                                 id="scale-select-dropdown",
@@ -206,32 +201,47 @@ def data_view_layout() -> html.Div:
                                 placeholder="Select items…",
                                 style={"marginBottom": "10px"},
                             ),
-
                             html.Div(id="selected-tags", className="tag-container"),
                         ],
+                    ),
+
+                    # --- BOTTOM NAV BUTTON ---
+                    html.Div(
+                        id="data-nav-button-container",
+                        style={
+                            "position": "absolute",
+                            "bottom": "20px",
+                            "left": "20px",
+                            "right": "20px",
+                        },
+                        children=[
+                            html.Button(
+                                "Map view",
+                                id="bottom-nav-button",
+                                className="switch-view-button"
+                            )
+                        ]
                     ),
                 ],
             ),
 
-            # MAIN CONTENT
+            # RIGHT PANEL
             html.Div(
                 id="right-panel",
                 style={
                     "flex": 1,
-                    "backgroundColor": "white",
                     "display": "flex",
                     "flexDirection": "column",
+                    "backgroundColor": "white",
                 },
                 children=[
 
-                    # Top tabs
+                    # TOP TABS
                     html.Div(
                         id="top-tabs",
                         style={
                             "display": "flex",
-                            "backgroundColor": "#c5e1f2",
-                            "padding": "8px",
-                            "gap": "10px",
+                            "backgroundColor": "#4F4F4F",
                         },
                         children=[
                             make_tab("Info"),
@@ -241,22 +251,21 @@ def data_view_layout() -> html.Div:
                         ],
                     ),
 
-                    # Main content display
+                    # STORE ACTIVE TAB
+                    dcc.Store(id="active-tab", data="info"),
+
+                    # RIGHT PANEL CONTENT
                     html.Div(
                         id="content-panel",
                         style={
                             "flex": 1,
-                            "backgroundColor": "white",
-                            "borderTop": "2px solid #a0c7dd",
                             "padding": "20px",
                         },
                         children=[
-                            html.H3(children="Selected Attributes:",
-                                    style={"marginBottom": "10px"}),
-                            html.Div(id="content-attribute-tags",
-                                     className="tag-container"),
-                            html.H4(id="current-scale-display",
-                                    style={"marginTop": "15px"}),
+                            html.Div(id="content-panel-info", style={"display": "block"}),  # Loaded dynamically
+                            html.Div(id="content-panel-plots", style={"display": "none"}),  # Loaded dynamically
+                            html.Div(id="content-panel-numbers", style={"display": "none"}),  # Loaded dynamically
+                            html.Div(id="content-panel-create", style={"display": "none"})  # Loaded dynamically
                         ],
                     ),
                 ],

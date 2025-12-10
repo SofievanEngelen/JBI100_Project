@@ -1,51 +1,31 @@
 import os
 import pandas as pd
 
-UN_countries = [
-    'AFGHANISTAN', 'ALBANIA', 'ALGERIA', 'ANDORRA', 'ANGOLA', 'ANTIGUA AND BARBUDA', 'ARGENTINA', 'ARMENIA',
-    'AUSTRALIA', 'AUSTRIA', 'AZERBAIJAN', 'BAHAMAS, THE', 'BAHRAIN', 'BANGLADESH', 'BARBADOS', 'BELARUS', 'BELGIUM',
-    'BELIZE', 'BENIN', 'BHUTAN', 'BOLIVIA', 'BOSNIA AND HERZEGOVINA', 'BOTSWANA', 'BRAZIL', 'BRUNEI', 'BULGARIA',
-    'BURKINA FASO', 'BURUNDI', 'CABO VERDE', 'CAMBODIA', 'CAMEROON', 'CANADA', 'CENTRAL AFRICAN REPUBLIC', 'CHAD',
-    'CHILE', 'CHINA', 'COLOMBIA', 'COMOROS', 'CONGO, REPUBLIC OF THE', 'COSTA RICA', "COTE D'IVOIRE", 'CROATIA', 'CUBA',
-    'CYPRUS',
-    'CZECHIA', 'KOREA, NORTH', 'CONGO, DEMOCRATIC REPUBLIC OF THE', 'DENMARK', 'DJIBOUTI', 'DOMINICA',
-    'DOMINICAN REPUBLIC', 'ECUADOR', 'EGYPT',
-    'EL SALVADOR', 'EQUATORIAL GUINEA', 'ERITREA', 'ESTONIA', 'ESWATINI', 'ETHIOPIA', 'FIJI', 'FINLAND', 'FRANCE',
-    'GABON', 'GAMBIA, THE', 'GEORGIA', 'GERMANY', 'GHANA', 'GREECE', 'GRENADA', 'GUATEMALA', 'GUINEA', 'GUINEA-BISSAU',
-    'GUYANA', 'HAITI', 'HONDURAS', 'HUNGARY', 'ICELAND', 'INDIA', 'INDONESIA', 'IRAN', 'IRAQ', 'IRELAND', 'ISRAEL',
-    'ITALY', 'JAMAICA', 'JAPAN', 'JORDAN', 'KAZAKHSTAN', 'KENYA', 'KIRIBATI', 'KUWAIT', 'KYRGYZSTAN', 'LAOS', 'LATVIA',
-    'LEBANON', 'LESOTHO', 'LIBERIA', 'LIBYA', 'LIECHTENSTEIN', 'LITHUANIA', 'LUXEMBOURG', 'MADAGASCAR', 'MALAWI',
-    'MALAYSIA', 'MALDIVES', 'MALI', 'MALTA', 'MARSHALL ISLANDS', 'MAURITANIA', 'MAURITIUS', 'MEXICO',
-    'MICRONESIA, FEDERATED STATES OF',
-    'MONACO', 'MONGOLIA', 'MONTENEGRO', 'MOROCCO', 'MOZAMBIQUE', 'BURMA', 'NAMIBIA', 'NAURU', 'NEPAL', 'NETHERLANDS',
-    'NEW ZEALAND', 'NICARAGUA', 'NIGER', 'NIGERIA', 'NORTH MACEDONIA', 'NORWAY', 'OMAN', 'PAKISTAN', 'PALAU', 'PANAMA',
-    'PAPUA NEW GUINEA', 'PARAGUAY', 'PERU', 'PHILIPPINES', 'POLAND', 'PORTUGAL', 'QATAR', 'KOREA, SOUTH', 'MOLDOVA',
-    'ROMANIA', 'RUSSIA', 'RWANDA', 'SAINT KITTS AND NEVIS', 'SAINT LUCIA', 'SAINT VINCENT AND THE GRENADINES',
-    'SAMOA', 'SAN MARINO', 'SAO TOME AND PRINCIPE', 'SAUDI ARABIA', 'SENEGAL', 'SERBIA', 'SEYCHELLES', 'SIERRA LEONE',
-    'SINGAPORE', 'SLOVAKIA', 'SLOVENIA', 'SOLOMON ISLANDS', 'SOMALIA', 'SOUTH AFRICA', 'SOUTH SUDAN', 'SPAIN',
-    'SRI LANKA', 'SUDAN', 'SURINAME', 'SWEDEN', 'SWITZERLAND', 'SYRIA', 'TAJIKISTAN', 'TANZANIA', 'THAILAND',
-    'TIMOR-LESTE', 'TOGO', 'TONGA', 'TRINIDAD AND TOBAGO', 'TUNISIA', 'TURKEY (TURKIYE)', 'TURKMENISTAN', 'TUVALU',
-    'UGANDA',
-    'UKRAINE', 'UNITED ARAB EMIRATES', 'UNITED KINGDOM', 'UNITED STATES', 'URUGUAY', 'UZBEKISTAN', 'VANUATU',
-    'VENEZUELA', 'VIETNAM', 'YEMEN', 'ZAMBIA', 'ZIMBABWE'
-]
+df = pd.read_csv("/Users/sofie/Downloads/country_info.csv")
+df["written_name"] = df["official_name"].str.capitalize()
+df.drop(["official_name"], axis=1, inplace=True)
+df.to_csv("/Users/sofie/Downloads/country_info_lowered.csv")
+#
+# # i = 0
+# for entry in os.scandir("./dashframework-main/jbi100_app/data/"):
+#     if entry.is_file():  # check if it's a file
+#         df = pd.read_csv(entry)
+#         your_set = set(df["Country"])
+#         un_set = set(UN_countries)
+#
+#         missing_from_your_list = sorted(un_set - your_set)
+#         extra_in_your_list = sorted(your_set - un_set)
+#         matching = sorted(your_set & un_set)
+#
+#         filtered = df[df["Country"].isin(matching)]
+#         filtered.to_csv(f"/Users/sofie/Downloads/{entry}_filtered", index=False)
+#
+#
+# print(str(entry), len(matching))
+# print("=== MISSING FROM YOUR LIST ===")
+# for x in missing_from_your_list:
+#     print(x)
 
-i = 0
-for entry in os.scandir("./CIA Global Statistical Database"):
-    if entry.is_file():  # check if it's a file
-        df = pd.read_csv(entry)
-        your_set = set(df["Country"])
-        un_set = set(UN_countries)
-
-        missing_from_your_list = sorted(un_set - your_set)
-        extra_in_your_list = sorted(your_set - un_set)
-        matching = sorted(your_set & un_set)
-
-        print(str(entry), len(matching))
-        # print("=== MISSING FROM YOUR LIST ===")
-        # for x in missing_from_your_list:
-        #     print(x)
-
-        # print("=== EXTRA IN YOUR LIST ===")
-        # for x in extra_in_your_list:
-        #     print(x)
+# print("=== EXTRA IN YOUR LIST ===")
+# for x in extra_in_your_list:
+#     print(x)

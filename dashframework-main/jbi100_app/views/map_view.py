@@ -1,20 +1,13 @@
-from dash import html
+from dash import html, dcc
+from jbi100_app.data_loader import CATEGORY_ATTRIBUTES, ALL_COUNTRIES, COUNTRY_TO_REGION, COUNTRY_TO_CONTINENT
 
 
-# Main Map View Layout
 def map_view_layout() -> html.Div:
-    """
-    Build the complete two-panel map view layout.
+    category_list = list(CATEGORY_ATTRIBUTES.keys())
 
-    The layout includes:\n
-    – Left sidebar:
-        • Map controls (filters, layers, interactions — placeholder for now)
-    – Right panel:
-        • Title area
-        • Main map canvas (placeholder container)
+    # Dynamic region list (UN M49)
+    REGION_OPTIONS = ["Global"] + sorted(set(COUNTRY_TO_REGION.values()))
 
-    :return: The full structured dashboard layout for the map view.
-    """
     return html.Div(
         id="map-view",
         style={"display": "flex", "height": "100vh"},
@@ -23,60 +16,103 @@ def map_view_layout() -> html.Div:
             # LEFT SIDEBAR
             html.Div(
                 id="map-left-panel",
-                style={
-                    "width": "25%",
-                    "backgroundColor": "#b5d9ea",
-                    "padding": "10px",
-                    "display": "flex",
-                    "flexDirection": "column",
-                    "gap": "20px",
-                    "overflowY": "auto",
-                },
                 children=[
 
-                    # Title
-                    html.H3("Map Controls", className="section-title"),
+                    html.H2("Map view", className="section-title"),
 
-                    # Placeholder for future map-related controls
-                    html.Div(
-                        children="Sidebar content for Map View",
-                        style={
-                            "backgroundColor": "white",
-                            "padding": "10px",
-                            "borderRadius": "8px",
-                        },
+                    # -------------------------
+                    # ATTRIBUTE SELECTION
+                    # -------------------------
+                    html.H4("ATTRIBUTE SELECTION", className="section-subtitle"),
+
+                    html.Label("Select category"),
+                    dcc.Dropdown(
+                        id="category-dropdown",
+                        options=[{"label": c, "value": c} for c in category_list],
+                        value=None,
+                        clearable=False,
                     ),
+
+                    html.Label("Select attribute"),
+                    dcc.Dropdown(
+                        id="attr-dropdown",
+                        options=[],
+                        value=None,
+                        clearable=False,
+                    ),
+
+                    # -------------------------
+                    # VIEW SELECTION
+                    # -------------------------
+                    html.H4("VIEW SELECTION", className="section-subtitle"),
+
+                    dcc.RadioItems(
+                        id="view-radio",
+                        options=[
+                            {"label": "Global", "value": "Global"},
+                            {"label": "Continent", "value": "Continent"},
+                            {"label": "Region", "value": "Region"},
+                        ],
+                        value="Global",
+                        className="radio-group",
+                    ),
+
+                    html.Label("Select continent / region"),
+                    dcc.Dropdown(
+                        id="region-dropdown",
+                        options=[{"label": r, "value": r} for r in REGION_OPTIONS],
+                        value="Global",
+                        clearable=False,
+                    ),
+
+                    html.Div(
+                        id="map-nav-button-container",
+                        children=[
+                            html.Button(
+                                "Go to Data View",
+                                id="bottom-nav-button",
+                                className="switch-view-button"
+                            )
+                        ]
+                    )
                 ],
             ),
 
-            # MAIN MAP CONTENT
+            # RIGHT PANEL (MAP)
             html.Div(
                 id="map-right-panel",
-                style={
-                    "flex": 1,
-                    "backgroundColor": "white",
-                    "padding": "20px",
-                    "borderTop": "2px solid #a0c7dd",
-                },
                 children=[
-
-                    # Map title
-                    html.H2("Map View", style={"marginBottom": "15px"}),
-
-                    # Placeholder map container
+                    # --- SEARCH BAR AT TOP ---
                     html.Div(
-                        children="Map goes here",
-                        style={
-                            "height": "100%",
-                            "backgroundColor": "#eef5fb",
-                            "display": "flex",
-                            "alignItems": "center",
-                            "justifyContent": "center",
-                            "border": "2px dashed #a0c7dd",
-                            "borderRadius": "10px",
-                        },
+                        id="map-search-container",
+                        children=[
+                            html.Div(
+                                id="search-inner-wrapper",
+                                children=[
+                                    html.Span(
+                                        id="search-icon",
+                                        children=[
+                                            html.I(className="search-icon-svg")
+                                        ]
+                                    ),
+                                    dcc.Dropdown(
+                                        id="search-country",
+                                        options=[{"label": c, "value": c} for c in ALL_COUNTRIES],
+                                        searchable=True,
+                                        clearable=True,
+                                        placeholder="Search country",
+                                    )
+                                ]
+                            )
+                        ]
                     ),
+
+                    # --- MAP BELOW ---
+                    dcc.Graph(id="mun-map",
+                              style={"height": "100%"},
+                              )
                 ],
             ),
+
         ],
     )

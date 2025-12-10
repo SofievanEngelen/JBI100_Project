@@ -1,3 +1,4 @@
+# jbi100_app/main.py
 from dash import Dash
 
 app = Dash(
@@ -5,4 +6,4 @@ app = Dash(
     suppress_callback_exceptions=True,
 )
 
-app.title = "JBI100 Template"
+app.title = "JBI100 Dashboard"
