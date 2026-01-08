@@ -35,13 +35,56 @@ def _numeric_attribute_values() -> list[str]:
 
 
 def _card(children, style_extra=None):
+    """
+    White card used for the sidebar.
+    """
     style = {
         "background": "white",
         "borderRadius": "14px",
         "boxShadow": "0 6px 18px rgba(15, 23, 42, 0.08)",
         "border": "1px solid rgba(148, 163, 184, 0.35)",
         "padding": "12px",
-        "minHeight": 0,  # IMPORTANT: allow plotly to fit in grids
+        "minHeight": 0,
+    }
+    if style_extra:
+        style.update(style_extra)
+    return html.Div(style=style, children=children)
+
+
+def _panel(children, style_extra=None):
+    """
+    Grey outer panel (matches your top-right window look).
+    Use this for Map, Right panel, and PCP so they feel consistent.
+    """
+    style = {
+        "height": "100%",
+        "background": "#f1f1f1",
+        "borderRadius": "18px",
+        "padding": "18px 22px",
+        "boxSizing": "border-box",
+        "display": "flex",
+        "flexDirection": "column",
+        "gap": "12px",
+        "minHeight": 0,
+        "border": "1px solid rgba(148, 163, 184, 0.25)",
+    }
+    if style_extra:
+        style.update(style_extra)
+    return html.Div(style=style, children=children)
+
+
+def _plot_wrap(children, style_extra=None):
+    """
+    White inner plot card inside the grey panel.
+    """
+    style = {
+        "background": "white",
+        "borderRadius": "12px",
+        "padding": "10px",
+        "boxSizing": "border-box",
+        "flex": "1",
+        "minHeight": 0,
+        "border": "1px solid rgba(148, 163, 184, 0.25)",
     }
     if style_extra:
         style.update(style_extra)
@@ -64,7 +107,7 @@ layout = html.Div(
     style={
         "height": "100vh",
         "width": "100%",
-        "overflow": "hidden",  # no page scrolling
+        "overflow": "hidden",
         "padding": "10px",
         "boxSizing": "border-box",
         "background": "#f6f7fb",
@@ -80,7 +123,7 @@ layout = html.Div(
             },
             children=[
                 # =========================
-                # Sidebar
+                # Sidebar (keep as white card)
                 # =========================
                 _card(
                     style_extra={
@@ -135,18 +178,6 @@ layout = html.Div(
                             placeholder="Limit attribute options",
                         ),
 
-                        # html.Div(
-                        #     "Map Attribute",
-                        #     style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"},
-                        # ),
-                        # dcc.Dropdown(
-                        #     id="vis-metric",
-                        #     options=_ATTR_OPTIONS,
-                        #     value=_ALL_ATTRS[0] if _ALL_ATTRS else None,
-                        #     clearable=False,
-                        #     placeholder="Map metric",
-                        # ),
-
                         html.Div(id="vis-warnings", style={"fontSize": "11px", "color": "#b91c1c"}),
 
                         html.Button(
@@ -177,7 +208,7 @@ layout = html.Div(
                 ),
 
                 # =========================
-                # Main area (fixed grid, no scroll)
+                # Main area
                 # =========================
                 html.Div(
                     style={
@@ -192,19 +223,16 @@ layout = html.Div(
                         html.Div(
                             style={
                                 "display": "grid",
-                                "gridTemplateColumns": "1fr 1fr",
+                                # right panel max 50%
+                                "gridTemplateColumns": "minmax(0, 1fr) minmax(0, 50%)",
                                 "gap": "12px",
                                 "minHeight": 0,
                             },
                             children=[
-                                # Map card
-                                _card(
-                                    style_extra={
-                                        "height": "100%",
-                                        "display": "flex",
-                                        "flexDirection": "column",
-                                        "gap": "8px",
-                                    },
+                                # =========================
+                                # Map (NOW styled like top-right: grey panel + white plot wrap)
+                                # =========================
+                                _panel(
                                     children=[
                                         html.Div(
                                             style={
@@ -216,9 +244,8 @@ layout = html.Div(
                                             children=[
                                                 html.Div(
                                                     "Map",
-                                                    style={"fontSize": "18px", "fontWeight": "900", "color": "#0b1f3b"},
+                                                    style={"fontSize": "14px", "fontWeight": "900", "color": "#3a3a3a"},
                                                 ),
-
                                                 dcc.Dropdown(
                                                     id="vis-metric",
                                                     options=_ATTR_OPTIONS,
@@ -230,31 +257,21 @@ layout = html.Div(
                                             ],
                                         ),
 
-                                        html.Div(
-                                            style={"flex": "1", "minHeight": 0},
-                                            children=dcc.Graph(
+                                        _plot_wrap(
+                                            dcc.Graph(
                                                 id="vis-map",
                                                 config=PLOT_CONFIG,
                                                 style={"height": "100%", "width": "100%"},
-                                            ),
+                                            )
                                         ),
                                     ],
                                 ),
 
-                                # Right panel
-                                html.Div(
-                                    style={
-                                        "height": "100%",
-                                        "background": "#f1f1f1",
-                                        "borderRadius": "18px",
-                                        "padding": "18px 22px",
-                                        "boxSizing": "border-box",
-                                        "display": "flex",
-                                        "flexDirection": "column",
-                                        "gap": "12px",
-                                        "minHeight": 0,
-                                        "border": "1px solid rgba(148, 163, 184, 0.25)",
-                                    },
+                                # =========================
+                                # Right panel (already matches; keep but via _panel for consistency)
+                                # =========================
+                                _panel(
+                                    style_extra={"maxWidth": "50%"},
                                     children=[
                                         html.Div(
                                             "Select Visualisation",
@@ -271,16 +288,8 @@ layout = html.Div(
                                             value="scatter",
                                             clearable=False,
                                         ),
-                                        # -------------------------
-                                        # Controls (plot-specific)
-                                        # -------------------------
 
-                                        # html.Div(
-                                        #     "Controls",
-                                        #     style={"fontSize": "14px", "fontWeight": "900", "color": "#3a3a3a"},
-                                        # ),
-
-                                        # ===== Scatter controls (2 attributes)
+                                        # ===== Scatter controls
                                         html.Div(
                                             id="vis-controls-scatter",
                                             style={
@@ -304,7 +313,7 @@ layout = html.Div(
                                             ],
                                         ),
 
-                                        # ===== Histogram controls (1 attribute + bin size)
+                                        # ===== Histogram controls
                                         html.Div(
                                             id="vis-controls-hist",
                                             style={
@@ -332,15 +341,14 @@ layout = html.Div(
                                                         ),
                                                         html.Div(
                                                             "Bin size",
-                                                            style={"textAlign": "center", "fontSize": "14px",
-                                                                   "fontWeight": "700"},
+                                                            style={"textAlign": "center", "fontSize": "14px", "fontWeight": "700"},
                                                         ),
                                                     ]
                                                 ),
                                             ],
                                         ),
 
-                                        # ===== Violin controls (1 attribute)
+                                        # ===== Violin controls
                                         html.Div(
                                             id="vis-controls-violin",
                                             style={"display": "none"},
@@ -355,40 +363,10 @@ layout = html.Div(
                                         ),
 
                                         # ===== Radar controls (none)
-                                        html.Div(
-                                            id="vis-controls-radar",
-                                            style={"display": "none"},
-                                        ),
+                                        html.Div(id="vis-controls-radar", style={"display": "none"}),
 
-                                        # html.Div(
-                                        #     style={"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "14px"},
-                                        #     children=[
-                                        #         dcc.Dropdown(
-                                        #             id="vis-scatter-x",
-                                        #             options=[],
-                                        #             placeholder="Attribute 1",
-                                        #             clearable=False,
-                                        #         ),
-                                        #         dcc.Dropdown(
-                                        #             id="vis-scatter-y",
-                                        #             options=[],
-                                        #             placeholder="Attribute 2",
-                                        #             clearable=False,
-                                        #         ),
-                                        #     ],
-                                        # ),
-
-                                        # plot window inside white card
-                                        html.Div(
-                                            style={
-                                                "background": "white",
-                                                "borderRadius": "12px",
-                                                "padding": "10px",
-                                                "boxSizing": "border-box",
-                                                "flex": "1",
-                                                "minHeight": 0,
-                                                "border": "1px solid rgba(148, 163, 184, 0.25)",
-                                            },
+                                        # white plot wrap
+                                        _plot_wrap(
                                             children=[
                                                 html.Div(
                                                     id="vis-right-wrap-scatter",
@@ -435,26 +413,19 @@ layout = html.Div(
                             ],
                         ),
 
-                        # ---------- Bottom row: PCP full width ----------
-                        _card(
-                            style_extra={
-                                "height": "100%",
-                                "display": "flex",
-                                "flexDirection": "column",
-                                "gap": "8px",
-                            },
+                        # ---------- Bottom row: PCP (NOW styled like top-right: grey panel + white plot wrap) ----------
+                        _panel(
                             children=[
                                 html.Div(
                                     "Parallel Coordinates",
-                                    style={"fontSize": "16px", "fontWeight": "900", "color": "#0b1f3b"},
+                                    style={"fontSize": "14px", "fontWeight": "900", "color": "#3a3a3a"},
                                 ),
-                                html.Div(
-                                    style={"flex": "1", "minHeight": 0},
-                                    children=dcc.Graph(
+                                _plot_wrap(
+                                    dcc.Graph(
                                         id="vis-pcp",
                                         config=PLOT_CONFIG,
                                         style={"height": "100%", "width": "100%"},
-                                    ),
+                                    )
                                 ),
                             ],
                         ),

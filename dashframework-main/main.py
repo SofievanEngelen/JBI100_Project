@@ -7,8 +7,13 @@ from jbi100_app.views.Visualisation import layout as vis_layout
 from jbi100_app.views.menu import layout as menu_layout
 
 from jbi100_app.callbacks import onboarding_callbacks  # noqa: F401
-from jbi100_app.callbacks import visualisation_callbacks  # noqa: F401
-
+from jbi100_app.callbacks import right_panel_callbacks  # noqa: F401
+from jbi100_app.callbacks import selection_callbacks
+from jbi100_app.callbacks import map_callbacks
+from jbi100_app.callbacks import scatter_callbacks
+from jbi100_app.callbacks import distribution_callbacks
+from jbi100_app.callbacks import pcp_callbacks
+from jbi100_app.callbacks import radar_callbacks
 
 app = Dash(__name__, suppress_callback_exceptions=True)
 app.title = "JBI100 Dashboard"
