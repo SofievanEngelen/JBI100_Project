@@ -3,8 +3,8 @@ from __future__ import annotations
 
 from dash import dcc, html
 
-from jbi100_app.data.category_mapping import UI_CATEGORY_LABELS
-from jbi100_app.data.data_loader import ALL_COUNTRIES
+from jbi100_app.data.category_mapping import UI_CATEGORIES, UI_CATEGORY_LABELS
+from jbi100_app.data.data_loader import ALL_COUNTRIES, DATA_INFO
 
 
 def _title_case_country(s: str) -> str:
@@ -50,10 +50,24 @@ def _iter_category_labels():
         return
 
 
-def _default_cat_key():
-    for k, _ in _iter_category_labels():
-        return k
-    return None
+def _numeric_attribute_options() -> list[dict]:
+    if DATA_INFO is None or getattr(DATA_INFO, "empty", True):
+        return []
+    exclude = {"Country", "_CountryKey", "Continent", "Region"}
+    cols = []
+    for c in list(DATA_INFO.columns):
+        if c in exclude:
+            continue
+        try:
+            if DATA_INFO[c].dtype.kind in "if":
+                cols.append(c)
+        except Exception:
+            continue
+    cols = sorted(set(cols), key=lambda s: str(s).lower())
+    return [{"label": c, "value": c} for c in cols]
+
+
+ATTR_OPTIONS = _numeric_attribute_options()
 
 
 layout = html.Div(
@@ -85,7 +99,7 @@ layout = html.Div(
                                             },
                                         ),
                                         html.Div(
-                                            "Select a delegation and optionally a category. Then explore with linked views.",
+                                            "Pick your delegation, choose default attributes, and optionally add attributes from categories.",
                                             style={"marginTop": "6px", "fontSize": "14px", "color": "#516074"},
                                         ),
                                     ]
@@ -107,45 +121,78 @@ layout = html.Div(
                 ),
                 html.Div(style={"height": "14px"}),
 
+                # ======= 2-column layout: LEFT = (1 + 2), RIGHT = 3 =======
                 html.Div(
-                    style={"display": "grid", "gridTemplateColumns": "minmax(520px, 1.4fr) minmax(360px, 1fr)", "gap": "14px", "alignItems": "start"},
+                    style={
+                        "display": "grid",
+                        "gridTemplateColumns": "minmax(520px, 1.1fr) minmax(520px, 1fr)",
+                        "gap": "14px",
+                        "alignItems": "start",
+                    },
                     children=[
-                        _card(
+                        # LEFT column: 1 + 2 stacked
+                        html.Div(
+                            style={"display": "grid", "gridTemplateRows": "auto auto", "gap": "14px"},
                             children=[
-                                html.Div(
-                                    "1. Select your delegation country",
-                                    style={"fontSize": "16px", "fontWeight": "900", "color": "#0b1f3b"},
+                                _card(
+                                    children=[
+                                        html.Div(
+                                            "1. Select your delegation country",
+                                            style={"fontSize": "16px", "fontWeight": "900", "color": "#0b1f3b"},
+                                        ),
+                                        dcc.Dropdown(
+                                            id="country-dd",
+                                            options=COUNTRY_OPTIONS,
+                                            value=ALL_COUNTRIES[0] if len(ALL_COUNTRIES) > 0 else None,
+                                            placeholder="Search country",
+                                            searchable=True,
+                                            clearable=False,
+                                            style={"marginTop": "10px"},
+                                        ),
+                                        html.Div(
+                                            "Tip: start with your delegation country; you can compare others later via map selection.",
+                                            style={"fontSize": "12px", "color": "#6b778c", "marginTop": "8px"},
+                                        ),
+                                    ],
                                 ),
-                                dcc.Dropdown(
-                                    id="country-dd",
-                                    options=COUNTRY_OPTIONS,
-                                    value=ALL_COUNTRIES[0] if len(ALL_COUNTRIES) > 0 else None,
-                                    placeholder="Search country",
-                                    searchable=True,
-                                    clearable=False,
-                                    style={"marginTop": "10px"},
-                                ),
-                                html.Div(
-                                    "Tip: start with your delegation country; you can compare others later via map selection.",
-                                    style={"fontSize": "12px", "color": "#6b778c", "marginTop": "8px"},
+                                _card(
+                                    children=[
+                                        html.Div(
+                                            "2. Choose attributes",
+                                            style={"fontSize": "16px", "fontWeight": "900", "color": "#0b1f3b"},
+                                        ),
+                                        html.Div(
+                                            "Select the default attribute pool used on the visualisation page (each plot can still override locally).",
+                                            style={"fontSize": "12px", "color": "#6b778c", "marginTop": "6px"},
+                                        ),
+                                        dcc.Dropdown(
+                                            id="all-attrs-dd",
+                                            options=ATTR_OPTIONS,
+                                            value=[],  # default: empty (user must choose)
+                                            multi=True,
+                                            placeholder="Select attributes (alphabetical)",
+                                            style={"marginTop": "10px"},
+                                        ),
+                                    ],
                                 ),
                             ],
                         ),
 
+                        # RIGHT column: 3
                         _card(
                             children=[
                                 html.Div(
-                                    "2. Optional category (you can clear it)",
+                                    "3. Category (optional)",
                                     style={"fontSize": "16px", "fontWeight": "900", "color": "#0b1f3b"},
                                 ),
                                 html.Div(
-                                    "This only influences the default PCP dimensions and available metrics.",
+                                    "Select one or more categories to preview the union of their attributes. You can add them to your selected attributes with the button.",
                                     style={"fontSize": "12px", "color": "#6b778c", "marginTop": "6px"},
                                 ),
                                 dcc.Checklist(
                                     id="cat-radio",
                                     options=[{"label": label, "value": key} for key, label in _iter_category_labels()],
-                                    value=[_default_cat_key()] if _default_cat_key() else [],
+                                    value=[],
                                     labelStyle={
                                         "display": "flex",
                                         "alignItems": "center",
@@ -160,14 +207,60 @@ layout = html.Div(
                                     inputStyle={"transform": "scale(1.05)"},
                                     style={"marginTop": "10px"},
                                 ),
-                                html.Div(id="category-hint", style={"fontSize": "12px", "color": "#6b778c", "marginTop": "10px"}),
+                                html.Div(
+                                    id="category-hint",
+                                    style={"fontSize": "12px", "color": "#6b778c", "marginTop": "10px"},
+                                ),
+                                html.Div(
+                                    style={"marginTop": "12px"},
+                                    children=[
+                                        html.Div(
+                                            "Category attributes",
+                                            style={"fontSize": "12px", "fontWeight": "800", "color": "#243b53"},
+                                        ),
+                                        html.Div(
+                                            id="category-attrs-preview",
+                                            style={
+                                                "marginTop": "8px",
+                                                "border": "1px solid rgba(15, 23, 42, 0.10)",
+                                                "borderRadius": "12px",
+                                                "padding": "10px 10px",
+                                                "background": "#fbfcff",
+                                                "maxHeight": "310px",
+                                                "overflowY": "auto",
+                                            },
+                                        ),
+                                    ],
+                                ),
+                                html.Button(
+                                    "Add category attributes to selected attributes",
+                                    id="cat-add-to-attrs",
+                                    n_clicks=0,
+                                    style={
+                                        "width": "100%",
+                                        "marginTop": "12px",
+                                        "height": "42px",
+                                        "borderRadius": "12px",
+                                        "border": "1px solid rgba(43,102,227,0.35)",
+                                        "background": "rgba(43,102,227,0.06)",
+                                        "color": "#1f4fd8",
+                                        "fontWeight": "800",
+                                        "cursor": "pointer",
+                                    },
+                                ),
                             ],
                         ),
                     ],
                 ),
 
                 _card(
-                    style_extra={"padding": "18px", "marginTop": "12px", "display": "flex", "justifyContent": "center", "alignItems": "center"},
+                    style_extra={
+                        "padding": "18px",
+                        "marginTop": "12px",
+                        "display": "flex",
+                        "justifyContent": "center",
+                        "alignItems": "center",
+                    },
                     children=[
                         html.Button(
                             "GET STARTED",
