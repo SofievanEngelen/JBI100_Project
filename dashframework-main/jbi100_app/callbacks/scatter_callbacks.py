@@ -8,15 +8,44 @@ from jbi100_app.data.data_loader import DATA_INFO
 from jbi100_app.data.geo_utils import geo_mask
 from jbi100_app.plots.common import metric_cols_for_category, all_numeric_metrics, pretty_metric
 from jbi100_app.plots.scatter import build_scatter_figure
-from jbi100_app.state.selection_store import normalize_selection_store, names_from_store
 
 
+# ---------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------
 def _safe_df() -> pd.DataFrame:
     if DATA_INFO is None or getattr(DATA_INFO, "empty", True):
         return pd.DataFrame(columns=["Country", "Region", "Continent"])
     return DATA_INFO.copy()
 
 
+def extract_scatter_brush_countries(selected_data, df: pd.DataFrame) -> list[str]:
+    """
+    Convert Plotly scatter selectedData -> list of country names.
+    """
+    if not isinstance(selected_data, dict):
+        return []
+
+    pts = selected_data.get("points", [])
+    if not pts:
+        return []
+
+    idxs: list[int] = []
+    for p in pts:
+        i = p.get("pointIndex")
+        if isinstance(i, int):
+            idxs.append(i)
+
+    if not idxs:
+        return []
+
+    idxs = [i for i in idxs if 0 <= i < len(df)]
+    return df.iloc[idxs]["Country"].astype(str).tolist()
+
+
+# ---------------------------------------------------------------------
+# Attribute dropdowns
+# ---------------------------------------------------------------------
 @callback(
     Output("vis-scatter-x", "options"),
     Output("vis-scatter-y", "options"),
@@ -28,6 +57,7 @@ def _safe_df() -> pd.DataFrame:
 )
 def refresh_scatter_attr_options(ui_category, cur_x, cur_y):
     df = _safe_df()
+
     cols = metric_cols_for_category(df, ui_category)
     if len(cols) < 2:
         cols = all_numeric_metrics(df)
@@ -44,6 +74,9 @@ def refresh_scatter_attr_options(ui_category, cur_x, cur_y):
     return opts, opts, cur_x, cur_y
 
 
+# ---------------------------------------------------------------------
+# Scatter plot rendering
+# ---------------------------------------------------------------------
 @callback(
     Output("vis-scatter-plot", "figure"),
     Input("vis-scatter-x", "value"),
@@ -54,9 +87,9 @@ def refresh_scatter_attr_options(ui_category, cur_x, cur_y):
 def update_scatter(x_metric, y_metric, geo_scale, selection_store):
     df = _safe_df()
 
-    selection_store = normalize_selection_store(selection_store)
-    selected_names = names_from_store(selection_store)
-    focus = selected_names[0] if selected_names else None
+    focus = None
+    if isinstance(selection_store, list) and selection_store:
+        focus = selection_store[0].get("country_name")
 
     in_mask = geo_mask(df, geo_scale or "global", focus) if not df.empty else None
 
@@ -65,5 +98,26 @@ def update_scatter(x_metric, y_metric, geo_scale, selection_store):
         x_metric=x_metric,
         y_metric=y_metric,
         in_mask=in_mask,
-        selection_store=selection_store,
+        selection_store=selection_store or [],
     )
+
+
+# ---------------------------------------------------------------------
+# Scatter selection → global brush (temporary region)
+# ---------------------------------------------------------------------
+@callback(
+    Output("pcp-brush-store", "data", allow_duplicate=True),
+    Input("vis-scatter-plot", "selectedData"),
+    prevent_initial_call=True,
+)
+def scatter_to_brush(selected_data):
+    if not selected_data:
+        return None
+
+    df = _safe_df()
+    countries = extract_scatter_brush_countries(selected_data, df)
+
+    if not countries:
+        return None
+
+    return {"countries": countries}
