@@ -58,7 +58,7 @@ def _panel(children, style_extra=None):
     """
     style = {
         "height": "100%",
-        "background": "#f1f1f1",
+        "background": "#ffffff",
         "borderRadius": "18px",
         "padding": "18px 22px",
         "boxSizing": "border-box",
@@ -105,10 +105,10 @@ PLOT_CONFIG = {"displayModeBar": False, "responsive": True}
 
 layout = html.Div(
     style={
-        "height": "100vh",
+        "height": "100%",
         "width": "100%",
         "overflow": "hidden",
-        "padding": "10px",
+        "padding": "10px 10px 25px 10px",  # small bottom margin
         "boxSizing": "border-box",
         "background": "#f6f7fb",
     },
@@ -127,10 +127,11 @@ layout = html.Div(
                 # =========================
                 _card(
                     style_extra={
-                        "height": "100%",
+                        # "height": "100%",
                         "display": "flex",
                         "flexDirection": "column",
                         "gap": "10px",
+                        "padding": "12px 12px 25px 12px",
                     },
                     children=[
                         html.Div(
@@ -223,7 +224,6 @@ layout = html.Div(
                         html.Div(
                             style={
                                 "display": "grid",
-                                # right panel max 50%
                                 "gridTemplateColumns": "minmax(0, 1fr) minmax(0, 50%)",
                                 "gap": "12px",
                                 "minHeight": 0,

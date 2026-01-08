@@ -43,10 +43,23 @@ def display_page(pathname):
 
     if pathname == "/vis":
         return html.Div(
-            [
+            style={
+                "height": "100vh",
+                "display": "flex",
+                "flexDirection": "column",
+                "overflow": "hidden",  # disables page scroll
+            },
+            children=[
                 menu_layout(),
-                vis_layout() if callable(vis_layout) else vis_layout,
-            ]
+                html.Div(
+                    style={
+                        "flex": "1",
+                        "minHeight": 0,  # IMPORTANT so children can shrink
+                        "overflow": "hidden"
+                    },
+                    children=vis_layout() if callable(vis_layout) else vis_layout,
+                ),
+            ],
         )
 
     return html.Div("404 - Page not found", style={"padding": "24px"})
