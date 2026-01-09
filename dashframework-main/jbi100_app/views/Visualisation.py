@@ -123,11 +123,10 @@ layout = html.Div(
             },
             children=[
                 # =========================
-                # Sidebar (keep as white card)
+                # Sidebar
                 # =========================
                 _card(
                     style_extra={
-                        # "height": "100%",
                         "display": "flex",
                         "flexDirection": "column",
                         "gap": "10px",
@@ -181,15 +180,10 @@ layout = html.Div(
 
                         html.Div(id="vis-warnings", style={"fontSize": "11px", "color": "#b91c1c"}),
 
+                        # ✅ merged button
                         html.Button(
                             "Clear selection",
-                            id="vis-clear-selection",
-                            n_clicks=0,
-                            style={"width": "100%"},
-                        ),
-                        html.Button(
-                            "Clear brush",
-                            id="vis-clear-brush",
+                            id="vis-clear-all",
                             n_clicks=0,
                             style={"width": "100%"},
                         ),
@@ -220,7 +214,7 @@ layout = html.Div(
                         "minHeight": 0,
                     },
                     children=[
-                        # ---------- Top row: Map + Right panel ----------
+                        # ---------- Top row ----------
                         html.Div(
                             style={
                                 "display": "grid",
@@ -229,9 +223,6 @@ layout = html.Div(
                                 "minHeight": 0,
                             },
                             children=[
-                                # =========================
-                                # Map (NOW styled like top-right: grey panel + white plot wrap)
-                                # =========================
                                 _panel(
                                     children=[
                                         html.Div(
@@ -256,7 +247,6 @@ layout = html.Div(
                                                 ),
                                             ],
                                         ),
-
                                         _plot_wrap(
                                             dcc.Graph(
                                                 id="vis-map",
@@ -267,9 +257,6 @@ layout = html.Div(
                                     ],
                                 ),
 
-                                # =========================
-                                # Right panel (already matches; keep but via _panel for consistency)
-                                # =========================
                                 _panel(
                                     style_extra={"maxWidth": "50%"},
                                     children=[
@@ -289,83 +276,41 @@ layout = html.Div(
                                             clearable=False,
                                         ),
 
-                                        # ===== Scatter controls
                                         html.Div(
                                             id="vis-controls-scatter",
-                                            style={
-                                                "display": "grid",
-                                                "gridTemplateColumns": "1fr 1fr",
-                                                "gap": "14px",
-                                            },
+                                            style={"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "14px"},
                                             children=[
-                                                dcc.Dropdown(
-                                                    id="vis-scatter-x",
-                                                    options=[],
-                                                    placeholder="Attribute 1",
-                                                    clearable=False,
-                                                ),
-                                                dcc.Dropdown(
-                                                    id="vis-scatter-y",
-                                                    options=[],
-                                                    placeholder="Attribute 2",
-                                                    clearable=False,
-                                                ),
+                                                dcc.Dropdown(id="vis-scatter-x", options=[], placeholder="Attribute 1", clearable=False),
+                                                dcc.Dropdown(id="vis-scatter-y", options=[], placeholder="Attribute 2", clearable=False),
                                             ],
                                         ),
 
-                                        # ===== Histogram controls
                                         html.Div(
                                             id="vis-controls-hist",
-                                            style={
-                                                "display": "none",
-                                                "gridTemplateColumns": "1fr 1fr",
-                                                "gap": "18px",
-                                                "alignItems": "center",
-                                            },
+                                            style={"display": "none", "gridTemplateColumns": "1fr 1fr", "gap": "18px", "alignItems": "center"},
                                             children=[
-                                                dcc.Dropdown(
-                                                    id="vis-hist-attr",
-                                                    options=[],
-                                                    placeholder="Attribute",
-                                                    clearable=False,
-                                                ),
+                                                dcc.Dropdown(id="vis-hist-attr", options=[], placeholder="Attribute", clearable=False),
                                                 html.Div(
                                                     children=[
                                                         dcc.Slider(
                                                             id="vis-hist-bins",
-                                                            min=5,
-                                                            max=60,
-                                                            step=1,
-                                                            value=30,
+                                                            min=5, max=60, step=1, value=30,
                                                             tooltip={"placement": "bottom"},
                                                         ),
-                                                        html.Div(
-                                                            "Bin size",
-                                                            style={"textAlign": "center", "fontSize": "14px", "fontWeight": "700"},
-                                                        ),
+                                                        html.Div("Bin size", style={"textAlign": "center", "fontSize": "14px", "fontWeight": "700"}),
                                                     ]
                                                 ),
                                             ],
                                         ),
 
-                                        # ===== Violin controls
                                         html.Div(
                                             id="vis-controls-violin",
                                             style={"display": "none"},
-                                            children=[
-                                                dcc.Dropdown(
-                                                    id="vis-violin-attr",
-                                                    options=[],
-                                                    placeholder="Attribute",
-                                                    clearable=False,
-                                                )
-                                            ],
+                                            children=[dcc.Dropdown(id="vis-violin-attr", options=[], placeholder="Attribute", clearable=False)],
                                         ),
 
-                                        # ===== Radar controls (none)
                                         html.Div(id="vis-controls-radar", style={"display": "none"}),
 
-                                        # white plot wrap
                                         _plot_wrap(
                                             children=[
                                                 html.Div(
@@ -413,13 +358,10 @@ layout = html.Div(
                             ],
                         ),
 
-                        # ---------- Bottom row: PCP (NOW styled like top-right: grey panel + white plot wrap) ----------
+                        # ---------- Bottom row ----------
                         _panel(
                             children=[
-                                html.Div(
-                                    "Parallel Coordinates",
-                                    style={"fontSize": "14px", "fontWeight": "900", "color": "#3a3a3a"},
-                                ),
+                                html.Div("Parallel Coordinates", style={"fontSize": "14px", "fontWeight": "900", "color": "#3a3a3a"}),
                                 _plot_wrap(
                                     dcc.Graph(
                                         id="vis-pcp",

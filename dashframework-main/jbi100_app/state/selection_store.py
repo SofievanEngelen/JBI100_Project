@@ -27,14 +27,14 @@ def normalize_selection_store(sel_store) -> list[SelectedCountry]:
     """
     Ensures selection store is a list[{country_name, colour_rgb}] with:
     - no duplicate names
-    - no duplicate colors
+    - no duplicate colours
     - max length limit
     """
     if not isinstance(sel_store, list):
         return []
 
     seen_names = set()
-    seen_colors = set()
+    seen_colours = set()
     out: list[SelectedCountry] = []
 
     for item in sel_store:
@@ -50,11 +50,11 @@ def normalize_selection_store(sel_store) -> list[SelectedCountry]:
 
         if n in seen_names:
             continue
-        if c in seen_colors:
+        if c in seen_colours:
             continue
 
         seen_names.add(n)
-        seen_colors.add(c)
+        seen_colours.add(c)
         out.append({"country_name": n, "colour_rgb": c})
 
         if len(out) >= MAX_SELECTED_COUNTRIES:
@@ -84,26 +84,26 @@ def merge_selection_store(prev_store, desired_names: list[str]) -> tuple[list[Se
     prev_map = {d["country_name"]: d["colour_rgb"] for d in prev_store}
 
     new_store: list[SelectedCountry] = []
-    used_colors: set[str] = set()
+    used_colours: set[str] = set()
 
     # keep existing colours
     for name in desired_names:
         if name in prev_map:
             col = prev_map[name]
-            if col in used_colors:
+            if col in used_colours:
                 continue
             new_store.append({"country_name": name, "colour_rgb": col})
-            used_colors.add(col)
+            used_colours.add(col)
 
     # assign new colours
     for name in desired_names:
         if name in prev_map:
             continue
-        free = [c for c in SELECTION_COLOR_POOL if c not in used_colors]
+        free = [c for c in SELECTION_COLOR_POOL if c not in used_colours]
         if not free:
             return prev_store, False
         col = random.choice(free)
         new_store.append({"country_name": name, "colour_rgb": col})
-        used_colors.add(col)
+        used_colours.add(col)
 
     return new_store, True

@@ -8,6 +8,8 @@ import plotly.graph_objects as go
 from jbi100_app.data.constants import IN_SCOPE_POINT, OUT_SCOPE_POINT
 from jbi100_app.plots.common import coerce_numeric, pretty_metric
 from jbi100_app.state.selection_store import SelectedCountry
+from jbi100_app.plots.common import BASE_GREY, FADED_GREY
+
 
 
 def build_scatter_figure(
@@ -16,6 +18,7 @@ def build_scatter_figure(
     y_metric: str,
     in_mask: pd.Series,
     selection_store: list[SelectedCountry],
+    brush_countries: list[str] | None = None,
 ) -> go.Figure:
     fig = go.Figure()
 
@@ -27,19 +30,37 @@ def build_scatter_figure(
         fig.update_layout(template="plotly_white", margin=dict(l=0, r=0, t=0, b=0))
         return fig
 
-    # Scope colouring (global / continent / region)
+    # ------------------------------------------------------------
+    # Base scope colouring (DARKER than before)
+    # ------------------------------------------------------------
     in_mask_arr = (
         in_mask.to_numpy(dtype=bool)
         if in_mask is not None and len(in_mask) == len(df)
         else np.ones(len(df), dtype=bool)
     )
 
-    base_colors = np.where(in_mask_arr, IN_SCOPE_POINT, OUT_SCOPE_POINT)
+    # # Darker base colors for better contrast
+    # BASE_IN_SCOPE = "rgba(90,90,90,0.95)"
+    # BASE_OUT_SCOPE = "rgba(130,130,130,0.85)"
+    #
+    base_colours = BASE_GREY
+    # ------------------------------------------------------------
+    # PCP brush overlay (fade NON-brushed points)
+    # ------------------------------------------------------------
+    brush_set = set(str(x) for x in (brush_countries or []) if x)
+    if brush_set:
+        brush_mask = df["Country"].astype(str).isin(brush_set).to_numpy(dtype=bool)
+        fade_colours = FADED_GREY
+
+        # Keep brushed points dark, fade the rest
+        base_colours = np.where(brush_mask, base_colours, fade_colours)
 
     x = coerce_numeric(df[x_metric])
     y = coerce_numeric(df[y_metric])
 
-    # Base scatter (selectable)
+    # ------------------------------------------------------------
+    # Base scatter layer
+    # ------------------------------------------------------------
     fig.add_trace(
         go.Scatter(
             x=x,
@@ -47,19 +68,23 @@ def build_scatter_figure(
             mode="markers",
             marker=dict(
                 size=6,
-                color=base_colors,
+                color=base_colours,
             ),
             selected=dict(marker=dict(size=7)),
             unselected=dict(marker=dict(opacity=0.15)),
             text=df["Country"],
             hovertemplate="<b>%{text}</b><br>"
-                          + pretty_metric(x_metric) + ": %{x}<br>"
-                          + pretty_metric(y_metric) + ": %{y}<extra></extra>",
+            + pretty_metric(x_metric)
+            + ": %{x}<br>"
+            + pretty_metric(y_metric)
+            + ": %{y}<extra></extra>",
             showlegend=False,
         )
     )
 
-    # Highlight selected countries (max 5)
+    # ------------------------------------------------------------
+    # Explicitly selected countries (coloured)
+    # ------------------------------------------------------------
     for item in selection_store:
         cname = item.get("country_name")
         ccol = item.get("colour_rgb") or "rgb(180,35,24)"
@@ -84,11 +109,13 @@ def build_scatter_figure(
                 marker=dict(
                     size=12,
                     color=ccol,
-                    line=dict(width=1, color="rgba(0,0,0,0.25)"),
+                    line=dict(width=1, color="rgba(0,0,0,0.35)"),
                 ),
                 hovertemplate="<b>" + cname + "</b><br>"
-                              + pretty_metric(x_metric) + ": %{x}<br>"
-                              + pretty_metric(y_metric) + ": %{y}<extra></extra>",
+                + pretty_metric(x_metric)
+                + ": %{x}<br>"
+                + pretty_metric(y_metric)
+                + ": %{y}<extra></extra>",
                 showlegend=False,
             )
         )
@@ -98,7 +125,7 @@ def build_scatter_figure(
         margin=dict(l=0, r=0, t=0, b=0),
         xaxis=dict(title=pretty_metric(x_metric)),
         yaxis=dict(title=pretty_metric(y_metric)),
-        dragmode="lasso",  # enables box + lasso selection
+        dragmode="lasso",
     )
 
     return fig

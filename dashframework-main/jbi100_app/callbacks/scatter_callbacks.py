@@ -1,7 +1,7 @@
 # jbi100_app/callbacks/scatter_callbacks.py
 from __future__ import annotations
 
-from dash import Input, Output, State, callback
+from dash import Input, Output, State, callback, no_update
 import pandas as pd
 
 from jbi100_app.data.data_loader import DATA_INFO
@@ -75,7 +75,7 @@ def refresh_scatter_attr_options(ui_category, cur_x, cur_y):
 
 
 # ---------------------------------------------------------------------
-# Scatter plot rendering
+# Scatter plot rendering (visually reflects PCP filter)
 # ---------------------------------------------------------------------
 @callback(
     Output("vis-scatter-plot", "figure"),
@@ -83,8 +83,9 @@ def refresh_scatter_attr_options(ui_category, cur_x, cur_y):
     Input("vis-scatter-y", "value"),
     Input("vis-geo-scale", "value"),
     Input("vis-selection-store", "data"),
+    Input("pcp-brush-store", "data"),
 )
-def update_scatter(x_metric, y_metric, geo_scale, selection_store):
+def update_scatter(x_metric, y_metric, geo_scale, selection_store, brush_data):
     df = _safe_df()
 
     focus = None
@@ -93,12 +94,17 @@ def update_scatter(x_metric, y_metric, geo_scale, selection_store):
 
     in_mask = geo_mask(df, geo_scale or "global", focus) if not df.empty else None
 
+    brush_countries: list[str] = []
+    if isinstance(brush_data, dict) and brush_data.get("countries"):
+        brush_countries = [str(x) for x in brush_data.get("countries", []) if x]
+
     return build_scatter_figure(
         df=df,
         x_metric=x_metric,
         y_metric=y_metric,
         in_mask=in_mask,
         selection_store=selection_store or [],
+        brush_countries=brush_countries,
     )
 
 
@@ -111,13 +117,16 @@ def update_scatter(x_metric, y_metric, geo_scale, selection_store):
     prevent_initial_call=True,
 )
 def scatter_to_brush(selected_data):
-    if not selected_data:
-        return None
+    # ✅ IMPORTANT: when the figure re-renders, selectedData often becomes None.
+    # Returning None here would clear the brush immediately.
+    if selected_data is None:
+        return no_update
 
     df = _safe_df()
     countries = extract_scatter_brush_countries(selected_data, df)
 
+    # If user made an empty selection (or selection got wiped), don't clear the store.
     if not countries:
-        return None
+        return no_update
 
     return {"countries": countries}
