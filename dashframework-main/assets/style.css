@@ -42,7 +42,7 @@ button {
 
 /* ===========================
    CARD-LIKE HELPERS (fallback)
-   Most card styling is inline in Visualisation.py
+   Most card styling is inline in layout.py
 =========================== */
 .card {
     background: white;

@@ -3,7 +3,7 @@ import dash
 from dash import Dash, html, dcc, Input, Output
 
 from jbi100_app.views.landing import layout as landing_layout
-from jbi100_app.views.Visualisation import layout as vis_layout
+from jbi100_app.views.layout import layout as vis_layout
 from jbi100_app.views.menu import layout as menu_layout
 
 from jbi100_app.callbacks import onboarding_callbacks  # noqa: F401

@@ -1,4 +1,4 @@
-# jbi100_app/views/Visualisation.py
+# jbi100_app/views/layout.py
 from __future__ import annotations
 
 from dash import html, dcc
@@ -165,6 +165,25 @@ layout = html.Div(
                             style={"marginTop": "4px"},
                             inputStyle={"marginRight": "8px"},
                         ),
+
+                        html.Div(
+                            id="vis-geo-scope-container",
+                            style={"marginTop": "6px", "display": "none"},
+                            children=[
+                                html.Div(
+                                    "Visible area",
+                                    style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"},
+                                ),
+                                dcc.Dropdown(
+                                    id="vis-geo-scope-dd",
+                                    options=[],
+                                    value=None,
+                                    clearable=False,
+                                    placeholder="Select continent / region",
+                                ),
+                            ],
+                        ),
+
 
                         html.Div(
                             "Category (optional)",
