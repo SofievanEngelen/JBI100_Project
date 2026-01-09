@@ -7,6 +7,7 @@ import plotly.graph_objects as go
 
 from jbi100_app.plots.common import coerce_numeric, pretty_metric
 from jbi100_app.state.selection_store import SelectedCountry
+from jbi100_app.data.constants import BASE_GREY_35, BASE_GREY_12, FADED_GREY_15, FADED_GREY_10
 
 
 def build_violin_figure(
@@ -44,8 +45,8 @@ def build_violin_figure(
                 box_visible=False,
                 meanline_visible=False,
                 points=False,
-                line_color="rgba(130,130,130,0.25)",
-                fillcolor="rgba(130,130,130,0.10)",
+                line_color=FADED_GREY_15,
+                fillcolor=FADED_GREY_10,
                 hoverinfo="skip",
                 showlegend=False,
             )
@@ -58,8 +59,8 @@ def build_violin_figure(
             box_visible=False,
             meanline_visible=False,
             points=False,
-            line_color="rgba(40,55,70,0.35)",
-            fillcolor="rgba(40,55,70,0.12)",
+            line_color=BASE_GREY_35,
+            fillcolor=BASE_GREY_12,
             hoverinfo="skip",
             showlegend=False,
         )

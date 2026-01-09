@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 
 from jbi100_app.data.constants import (
     COLOR_SCALE,
-    MAP_BRUSH_OUTLINE_COLOR,
+    BASE_GREY,
     SMALL_COUNTRY_AREA_KM2,
 )
 from jbi100_app.plots.common import coerce_numeric, pretty_metric
@@ -151,7 +151,7 @@ def build_map_figure(
                     customdata=np.stack([brush_df["Country"]], axis=-1),
                     colorscale=[[0, "rgba(0,0,0,0)"], [1, "rgba(0,0,0,0)"]],
                     showscale=False,
-                    marker_line_color=MAP_BRUSH_OUTLINE_COLOR,
+                    marker_line_color=BASE_GREY,
                     marker_line_width=1.5,
                     hoverinfo="skip",
                 )

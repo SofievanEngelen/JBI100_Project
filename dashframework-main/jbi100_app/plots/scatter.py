@@ -5,10 +5,10 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-from jbi100_app.data.constants import IN_SCOPE_POINT, OUT_SCOPE_POINT
+# from jbi100_app.data.constants import IN_SCOPE_POINT, OUT_SCOPE_POINT
 from jbi100_app.plots.common import coerce_numeric, pretty_metric
 from jbi100_app.state.selection_store import SelectedCountry
-from jbi100_app.plots.common import BASE_GREY, FADED_GREY
+from jbi100_app.data.constants import BASE_GREY, FADED_GREY
 
 
 

@@ -81,9 +81,3 @@ def kde_counts(x: np.ndarray, grid: np.ndarray, bin_width: float, bw: float | No
     kern = np.exp(-0.5 * diffs * diffs) / (np.sqrt(2 * np.pi) * bw)
     pdf = np.mean(kern, axis=1)
     return pdf * n * float(bin_width)
-
-
-# Colours
-# Base greys
-BASE_GREY = "rgb(105, 105, 105)"     # normal / unfiltered
-FADED_GREY = "rgb(242, 242, 242)"    # filtered out
