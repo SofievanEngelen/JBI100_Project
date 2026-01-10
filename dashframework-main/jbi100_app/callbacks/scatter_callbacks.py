@@ -113,7 +113,8 @@ def update_scatter(x_metric, y_metric, geo_scale, selection_store, brush_data):
 # ---------------------------------------------------------------------
 @callback(
     Output("pcp-brush-store", "data", allow_duplicate=True),
-    Input("vis-scatter-plot", "selectedData"),
+    Output("vis-geo-scale", "value", allow_duplicate=True),
+    Output("vis-geo-scope-dd", "value", allow_duplicate=True),    Input("vis-scatter-plot", "selectedData"),
     prevent_initial_call=True,
 )
 def scatter_to_brush(selected_data):
@@ -129,4 +130,8 @@ def scatter_to_brush(selected_data):
     if not countries:
         return no_update
 
-    return {"countries": countries}
+    brush_payload = {"countries": countries}
+
+    # 2) Reset map scope to global
+    return brush_payload, "global", None
+
