@@ -34,7 +34,7 @@ def _numeric_attribute_values() -> list[str]:
     return sorted(set(cols), key=lambda s: str(s).lower())
 
 
-def _card(children, style_extra=None):
+def _card(children, style_extra=None, class_name: str | None = None):
     """
     White card used for the sidebar.
     """
@@ -48,7 +48,7 @@ def _card(children, style_extra=None):
     }
     if style_extra:
         style.update(style_extra)
-    return html.Div(style=style, children=children)
+    return html.Div(style=style, children=children, className=class_name)
 
 
 def _panel(children, style_extra=None):
@@ -126,33 +126,42 @@ layout = html.Div(
                 # Sidebar
                 # =========================
                 _card(
+                    class_name="sidebar-card",
                     style_extra={
                         "display": "flex",
                         "flexDirection": "column",
-                        "gap": "10px",
+                        # "gap": "10px",
                         "padding": "12px 12px 25px 12px",
+                        "height": "96.5%",
+                        "minHeight": 0,
                     },
                     children=[
                         html.Div(
                             "Visualization Tool",
-                            style={"fontSize": "16px", "fontWeight": "900", "color": "#0b1f3b"},
+                            style={"fontSize": "16px",
+                                   "fontWeight": "900",
+                                   "color": "#0b1f3b",
+                                   "marginBottom": "10px"},
                         ),
-
                         html.Div(
                             "Select Country (max 5)",
-                            style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"},
+                            style={"fontSize": "11px",
+                                   "fontWeight": "800",
+                                   "color": "#243b53"},
                         ),
                         dcc.Dropdown(
                             id="vis-country",
+                            style={"paddingBottom": "10px"},
                             options=[],
                             value=[],
                             multi=True,
                             placeholder="Find country",
                         ),
-
                         html.Div(
                             "Select Scale",
-                            style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"},
+                            style={"fontSize": "11px",
+                                   "fontWeight": "800",
+                                   "color": "#243b53"},
                         ),
                         dcc.RadioItems(
                             id="vis-geo-scale",
@@ -162,13 +171,12 @@ layout = html.Div(
                                 {"label": "Continent", "value": "continent"},
                                 {"label": "Region", "value": "region"},
                             ],
-                            style={"marginTop": "4px"},
+                            style={"marginTop": "4px", "marginBottom": "10px"},
                             inputStyle={"marginRight": "8px"},
                         ),
-
                         html.Div(
                             id="vis-geo-scope-container",
-                            style={"marginTop": "6px", "display": "none"},
+                            style={"marginTop": "6px", "display": "none", "marginBottom": "10px"},
                             children=[
                                 html.Div(
                                     "Visible area",
@@ -180,59 +188,38 @@ layout = html.Div(
                                     value=None,
                                     clearable=False,
                                     placeholder="Select continent / region",
+                                    style={"marginBottom": "10px"},
                                 ),
                             ],
                         ),
-
-
-                        # html.Div(
-                        #     "Category (optional)",
-                        #     style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"},
-                        # ),
-                        # dcc.Dropdown(
-                        #     id="vis-category",
-                        #     options=_CATEGORY_OPTIONS,
-                        #     value=None,
-                        #     clearable=True,
-                        #     placeholder="Limit attribute options",
-                        # ),
-
                         html.Div(
-                            "Attributes (optional)",
+                            "Attributes",
                             style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"},
                         ),
                         dcc.Dropdown(
                             id="vis-attr-pool",
-                            options=_ATTR_OPTIONS,      # you already build this from numeric columns
+                            options=_ATTR_OPTIONS,
                             value=[],
                             multi=True,
-                            placeholder="Limit attribute options (leave empty for all)",
+                            placeholder="Select attributes",
+                            style={"marginBottom": "10px"},
                         ),
-
-
                         html.Div(id="vis-warnings", style={"fontSize": "11px", "color": "#b91c1c"}),
-
                         html.Button(
                             "Clear filter",
                             id="vis-clear-all",
                             n_clicks=0,
-                            style={"width": "100%"},
+                            style={"width": "100%", "marginBottom": "10px"},
                         ),
-
                         html.Hr(style={"margin": "8px 0"}),
-
                         html.Div("Population", style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"}),
                         html.Div(id="vis-population-text", style={"fontSize": "11px", "color": "#516074"}),
-
                         html.Div("Selected", style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"}),
                         html.Div(id="vis-selected-text", style={"fontSize": "11px", "color": "#516074"}),
-
-                        # Stores
                         dcc.Store(id="pcp-brush-store", data=None),
                         dcc.Store(id="vis-selection-store", data=[]),
                     ],
                 ),
-
                 # =========================
                 # Main area
                 # =========================
@@ -287,7 +274,6 @@ layout = html.Div(
                                         ),
                                     ],
                                 ),
-
                                 _panel(
                                     style_extra={"maxWidth": "50%"},
                                     children=[
@@ -306,7 +292,6 @@ layout = html.Div(
                                             value="scatter",
                                             clearable=False,
                                         ),
-
                                         html.Div(
                                             id="vis-controls-scatter",
                                             style={"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "14px"},
@@ -315,7 +300,6 @@ layout = html.Div(
                                                 dcc.Dropdown(id="vis-scatter-y", options=[], placeholder="Attribute 2", clearable=False),
                                             ],
                                         ),
-
                                         html.Div(
                                             id="vis-controls-hist",
                                             style={"display": "none", "gridTemplateColumns": "1fr 1fr", "gap": "18px", "alignItems": "center"},
@@ -324,10 +308,9 @@ layout = html.Div(
                                                 html.Div(
                                                     style={
                                                         "position": "relative",
-                                                        "paddingTop": "34px",  # space for numbers + label above
+                                                        "paddingTop": "34px",
                                                     },
                                                     children=[
-                                                        # ✅ Centered label ABOVE slider
                                                         html.Div(
                                                             "Bin size",
                                                             style={
@@ -341,7 +324,6 @@ layout = html.Div(
                                                                 "pointerEvents": "none",
                                                             },
                                                         ),
-
                                                         dcc.Slider(
                                                             id="vis-hist-bins",
                                                             min=5,
@@ -354,18 +336,14 @@ layout = html.Div(
                                                         ),
                                                     ],
                                                 ),
-
                                             ],
                                         ),
-
                                         html.Div(
                                             id="vis-controls-violin",
                                             style={"display": "none"},
                                             children=[dcc.Dropdown(id="vis-violin-attr", options=[], placeholder="Attribute", clearable=False)],
                                         ),
-
                                         html.Div(id="vis-controls-radar", style={"display": "none"}),
-
                                         _plot_wrap(
                                             children=[
                                                 html.Div(
@@ -406,13 +384,11 @@ layout = html.Div(
                                                 ),
                                             ],
                                         ),
-
                                         html.Div(id="vis-filter-text", style={"fontSize": "12px", "color": "#6b7280"}),
                                     ],
                                 ),
                             ],
                         ),
-
                         # ---------- Bottom row ----------
                         _panel(
                             children=[
@@ -427,7 +403,6 @@ layout = html.Div(
                                             "Parallel Coordinates",
                                             style={"fontSize": "14px", "fontWeight": "900", "color": "#3a3a3a"},
                                         ),
-
                                         dcc.Checklist(
                                             id="vis-pcp-selected-only",
                                             options=[{"label": "Selected only", "value": "on"}],

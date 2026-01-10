@@ -133,3 +133,35 @@ button {
   height: 100%;
   overflow: hidden;
 }
+
+/* ===========================
+   RESPONSIVE SIDEBAR
+   - Sidebar grows with content
+   - If it exceeds the viewport, it scrolls internally (no overlap)
+=========================== */
+.sidebar-card{
+  display:flex;
+  flex-direction:column;
+  /*gap:10px;*/
+  min-height:0;
+  overflow-y:auto;
+}
+
+.Select-control{
+  height: auto !important;
+  min-height: 38px;   /* keep the nice default height when empty/1-line */
+}
+
+/* Ensure selected values wrap onto new lines */
+.Select--multi .Select-multi-value-wrapper{
+  display: flex !important;
+  flex-wrap: wrap !important;
+  align-items: center;
+}
+
+/* Keep the input line aligned nicely within the wrapping container */
+.Select--multi .Select-input{
+  height: 34px;
+  margin-top: 2px;
+  margin-bottom: 2px;
+}
