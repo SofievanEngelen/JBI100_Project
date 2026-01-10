@@ -84,7 +84,9 @@ def init_or_update_country_dropdown(vis_country_value, cur_sel_store):
 
     cur_sel_store = normalize_selection_store(cur_sel_store)
 
-    new_names = clamp_selection(vis_country_value if isinstance(vis_country_value, list) else ([vis_country_value] if vis_country_value else []))
+    new_names = clamp_selection(
+        vis_country_value if isinstance(vis_country_value, list) else ([vis_country_value] if vis_country_value else [])
+    )
     merged, ok = merge_selection_store(cur_sel_store, new_names)
     if not ok:
         merged = cur_sel_store
@@ -99,6 +101,7 @@ def init_or_update_country_dropdown(vis_country_value, cur_sel_store):
     return names_from_store(merged), opts, warn, merged
 
 
+# ✅ Clear button: clears ONLY the PCP filter (brush), keeps selected countries
 @callback(
     Output("vis-country", "value", allow_duplicate=True),
     Output("vis-selection-store", "data", allow_duplicate=True),
@@ -106,28 +109,12 @@ def init_or_update_country_dropdown(vis_country_value, cur_sel_store):
     Input("vis-clear-all", "n_clicks"),
     prevent_initial_call=True,
 )
-def clear_all(n):
-    if n and n > 0:
-        return no_update, no_update, None   # ✅ keep selection, clear filter only
-    return no_update, no_update, no_update
+def clear_filter_only(n):
+    if not n:
+        return no_update, no_update, no_update
 
-from dash import no_update
-
-@callback(
-    Output("vis-attr-pool", "value", allow_duplicate=True),
-    Input("vis-attr-pool", "value"),
-    prevent_initial_call=True,
-)
-def clamp_attr_pool(v):
-    if v is None:
-        return []
-    if not isinstance(v, list):
-        v = [v]
-    v = [str(x) for x in v if x]
-    if len(v) <= 8:
-        return no_update
-    return v[:8]
-
+    # Keep selection; clear only the brush/filter
+    return no_update, no_update, None
 
 
 @callback(

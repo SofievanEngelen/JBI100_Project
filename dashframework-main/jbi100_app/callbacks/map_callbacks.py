@@ -3,7 +3,7 @@ from __future__ import annotations
 import pandas as pd
 from dash import Input, Output, callback
 
-from jbi100_app.data.data_loader import DATA_INFO, CONTINENTS, REGIONS
+from jbi100_app.data.data_loader import DATA_INFO, CONTINENTS, REGIONS, normalize_country_key
 from jbi100_app.plots.map import build_map_figure
 from jbi100_app.data.geo_utils import geo_mask
 
@@ -37,30 +37,47 @@ def update_geo_scope_dropdown(geo_scale):
     return {"display": "none"}, [], None
 
 
-def _brush_countries_from_store(brush_data) -> list[str]:
+def _raw_countries_from_brush_store(brush_data) -> list[str]:
     """
-    pcp-brush-store can be:
+    Accepts:
       - None
-      - {"countries": [...]}  (your scatter/pcp callbacks)
-      - a raw list[str]       (some older code)
-    Normalize to list[str].
+      - {"countries": [...], "constraints": {...}}
+      - {"countries": [...]}  (scatter)
+      - ["Netherlands", ...]  (older)
+    Returns raw strings (un-normalized).
     """
     if brush_data is None:
         return []
+
     if isinstance(brush_data, dict):
         vals = brush_data.get("countries", [])
         if isinstance(vals, list):
             return [str(x) for x in vals if x]
         return []
+
     if isinstance(brush_data, list):
         return [str(x) for x in brush_data if x]
+
     return []
+
+
+def _brush_countries_for_df(brush_data, df: pd.DataFrame) -> list[str]:
+    """
+    Convert brush store -> list of df['Country'] display names.
+    Uses _CountryKey matching so case/spacing differences don't break filtering.
+    """
+    raw = _raw_countries_from_brush_store(brush_data)
+    keys = {normalize_country_key(x) for x in raw}
+    keys.discard("")
+
+    if not keys or df is None or df.empty or "_CountryKey" not in df.columns:
+        return []
+
+    return df.loc[df["_CountryKey"].isin(keys), "Country"].astype(str).tolist()
 
 
 # ============================================================
 # Map update
-# - scope dropdown controls "continent/region focus" (via in_mask)
-# - brush store controls FILTER (white-out outside filter) in map.py
 # ============================================================
 @callback(
     Output("vis-map", "figure"),
@@ -90,7 +107,7 @@ def update_map(metric, geo_scale, geo_scope, selection_store, brush_data):
     # Base geo mask (existing behaviour; requires focus_country arg)
     base_mask = geo_mask(plot_df, geo_scale or "global", None)
 
-    # Scope mask (controls continent/region visibility WITHOUT removing others)
+    # Scope mask (controls continent/region focus)
     scope_mask = pd.Series(True, index=plot_df.index)
 
     if (geo_scale or "").lower() == "continent" and geo_scope in CONTINENTS:
@@ -103,8 +120,8 @@ def update_map(metric, geo_scale, geo_scope, selection_store, brush_data):
 
     in_mask = base_mask & scope_mask
 
-    # ✅ This is the FILTER list used by map.py to white-out outside filter
-    brush_countries = _brush_countries_from_store(brush_data)
+    # ✅ Robust extraction (keys -> df Country names)
+    brush_countries = _brush_countries_for_df(brush_data, plot_df)
 
     return build_map_figure(
         plot_df,

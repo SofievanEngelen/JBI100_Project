@@ -4,9 +4,9 @@ from __future__ import annotations
 from dash import Input, Output, State, callback, no_update
 import pandas as pd
 
-from jbi100_app.data.data_loader import DATA_INFO
+from jbi100_app.data.data_loader import DATA_INFO, normalize_country_key
 from jbi100_app.data.geo_utils import geo_mask
-from jbi100_app.plots.common import metric_cols_for_category, all_numeric_metrics, pretty_metric
+from jbi100_app.plots.common import all_numeric_metrics, pretty_metric
 from jbi100_app.plots.scatter import build_scatter_figure
 
 
@@ -17,6 +17,28 @@ def _safe_df() -> pd.DataFrame:
     if DATA_INFO is None or getattr(DATA_INFO, "empty", True):
         return pd.DataFrame(columns=["Country", "Region", "Continent"])
     return DATA_INFO.copy()
+
+
+def _raw_countries_from_brush_store(brush_data) -> list[str]:
+    if brush_data is None:
+        return []
+    if isinstance(brush_data, dict):
+        vals = brush_data.get("countries", [])
+        if isinstance(vals, list):
+            return [str(x) for x in vals if x]
+        return []
+    if isinstance(brush_data, list):
+        return [str(x) for x in brush_data if x]
+    return []
+
+
+def _brush_countries_for_df(brush_data, df: pd.DataFrame) -> list[str]:
+    raw = _raw_countries_from_brush_store(brush_data)
+    keys = {normalize_country_key(x) for x in raw}
+    keys.discard("")
+    if not keys or df is None or df.empty or "_CountryKey" not in df.columns:
+        return []
+    return df.loc[df["_CountryKey"].isin(keys), "Country"].astype(str).tolist()
 
 
 def extract_scatter_brush_countries(selected_data, df: pd.DataFrame) -> list[str]:
@@ -44,29 +66,29 @@ def extract_scatter_brush_countries(selected_data, df: pd.DataFrame) -> list[str
 
 
 # ---------------------------------------------------------------------
-# Attribute dropdowns
+# Attribute dropdowns (all numeric metrics; independent of sidebar)
 # ---------------------------------------------------------------------
 @callback(
     Output("vis-scatter-x", "options"),
     Output("vis-scatter-y", "options"),
     Output("vis-scatter-x", "value"),
     Output("vis-scatter-y", "value"),
-    Input("vis-geo-scale", "value"),
+    Input("vis-metric", "value"),  # just to trigger once the dataset/metric is ready
     State("vis-scatter-x", "value"),
     State("vis-scatter-y", "value"),
 )
-def refresh_scatter_attr_options(_geo_scale, cur_x, cur_y):
+def refresh_scatter_attr_options(_metric, cur_x, cur_y):
     df = _safe_df()
-
     cols = all_numeric_metrics(df)
+
     opts = [{"label": pretty_metric(c), "value": c} for c in cols]
-    if not cols:
-        return [], [], None, None
+    if len(cols) < 2:
+        return opts, opts, (cols[0] if cols else None), (cols[0] if cols else None)
 
     if cur_x not in cols:
         cur_x = cols[0]
     if cur_y not in cols or cur_y == cur_x:
-        cur_y = cols[1] if len(cols) > 1 else cols[0]
+        cur_y = cols[1]
 
     return opts, opts, cur_x, cur_y
 
@@ -91,9 +113,8 @@ def update_scatter(x_metric, y_metric, geo_scale, selection_store, brush_data):
 
     in_mask = geo_mask(df, geo_scale or "global", focus) if not df.empty else None
 
-    brush_countries: list[str] = []
-    if isinstance(brush_data, dict) and brush_data.get("countries"):
-        brush_countries = [str(x) for x in brush_data.get("countries", []) if x]
+    # ✅ Robust extraction (keys -> df Country names)
+    brush_countries = _brush_countries_for_df(brush_data, df)
 
     return build_scatter_figure(
         df=df,
@@ -106,29 +127,28 @@ def update_scatter(x_metric, y_metric, geo_scale, selection_store, brush_data):
 
 
 # ---------------------------------------------------------------------
-# Scatter selection → global brush (temporary region)
+# Scatter selection → global brush (temporary region / filter)
 # ---------------------------------------------------------------------
 @callback(
     Output("pcp-brush-store", "data", allow_duplicate=True),
     Output("vis-geo-scale", "value", allow_duplicate=True),
-    Output("vis-geo-scope-dd", "value", allow_duplicate=True),    Input("vis-scatter-plot", "selectedData"),
+    Output("vis-geo-scope-dd", "value", allow_duplicate=True),
+    Input("vis-scatter-plot", "selectedData"),
     prevent_initial_call=True,
 )
 def scatter_to_brush(selected_data):
-    # ✅ IMPORTANT: when the figure re-renders, selectedData often becomes None.
-    # Returning None here would clear the brush immediately.
+    # When selection is cleared by plotly re-render, selectedData becomes None.
+    # Do not clear the brush in that case.
     if selected_data is None:
-        return no_update
+        return no_update, no_update, no_update
 
     df = _safe_df()
     countries = extract_scatter_brush_countries(selected_data, df)
 
-    # If user made an empty selection (or selection got wiped), don't clear the store.
     if not countries:
-        return no_update
+        return no_update, no_update, no_update
 
     brush_payload = {"countries": countries}
 
-    # 2) Reset map scope to global
+    # Reset map scope to global when filter is created from scatter
     return brush_payload, "global", None
-

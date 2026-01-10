@@ -8,6 +8,14 @@ from jbi100_app.data.constants import COLOR_SCALE, SMALL_COUNTRY_AREA_KM2
 from jbi100_app.plots.common import coerce_numeric, pretty_metric
 from jbi100_app.state.selection_store import SelectedCountry
 
+_TRANSPARENT = "rgba(0,0,0,0)"
+
+
+def _key(name: object) -> str:
+    if not isinstance(name, str):
+        return ""
+    return name.strip().upper()
+
 
 def build_map_figure(
     df: pd.DataFrame,
@@ -15,7 +23,7 @@ def build_map_figure(
     geo_scale: str,
     in_mask: pd.Series | None,
     selection_store: list[SelectedCountry],
-    brush_countries: list[str] | None,
+    brush_country_keys: list[str] | None,
 ) -> go.Figure:
     fig = go.Figure()
 
@@ -26,11 +34,10 @@ def build_map_figure(
     plot_df = df.copy()
     plot_df["_z"] = coerce_numeric(plot_df[metric])
 
-    selected_names = {s["country_name"] for s in selection_store}
-    brush_set = set(brush_countries or [])
+    brush_set = set(brush_country_keys or [])
 
     # ------------------------------------------------------------------
-    # 1️⃣ Base choropleth: ALL countries, metric colours
+    # 1) Base choropleth: ALL countries with metric scale
     # ------------------------------------------------------------------
     fig.add_trace(
         go.Choropleth(
@@ -41,15 +48,14 @@ def build_map_figure(
             marker_line_color="rgba(255,255,255,0.35)",
             marker_line_width=0.5,
             colorbar=dict(orientation="h"),
-            hovertemplate="<b>%{text}</b><br>"
-            + pretty_metric(metric)
-            + ": %{z}<extra></extra>",
+            hovertemplate="<b>%{text}</b><br>" + pretty_metric(metric) + ": %{z}<extra></extra>",
             text=plot_df["Country"],
         )
     )
 
     # ------------------------------------------------------------------
-    # 2️⃣ Out-of-scope countries → white (but still visible)
+    # 2) Out-of-scope countries: white-out (still visible)
+    #    - out of continent/region scope OR outside PCP/scatter filter
     # ------------------------------------------------------------------
     out_mask = pd.Series(False, index=plot_df.index)
 
@@ -57,10 +63,7 @@ def build_map_figure(
         out_mask |= ~in_mask
 
     if brush_set:
-        out_mask |= ~plot_df["Country"].isin(brush_set)
-
-    # do NOT white-out selected countries
-    out_mask &= ~plot_df["Country"].isin(selected_names)
+        out_mask |= ~plot_df["_CountryKey"].isin(brush_set)
 
     if out_mask.any():
         fig.add_trace(
@@ -77,24 +80,28 @@ def build_map_figure(
         )
 
     # ------------------------------------------------------------------
-    # 3️⃣ Selected countries → outline only
+    # 3) Selected countries: BORDER ONLY (transparent fill overlay)
     # ------------------------------------------------------------------
     for item in selection_store:
-        cname = item["country_name"]
+        cname = item.get("country_name")
+        if not cname:
+            continue
 
-        # scope check
+        ck = _key(cname)
+
+        # determine "in scope" for choosing strong vs light border colour
         in_geo = True
         if in_mask is not None:
-            row = plot_df["Country"] == cname
-            if row.any():
-                in_geo = bool(in_mask.loc[row].iloc[0])
+            rowmask = plot_df["_CountryKey"] == ck
+            if rowmask.any():
+                in_geo = bool(in_mask.loc[rowmask].iloc[0])
 
-        in_filter = not brush_set or cname in brush_set
+        in_filter = (not brush_set) or (ck in brush_set)
         in_scope = in_geo and in_filter
 
         outline_color = item["colour_rgb"] if in_scope else item["colour_rgb_light"]
 
-        row = plot_df.loc[plot_df["Country"] == cname]
+        row = plot_df.loc[plot_df["_CountryKey"] == ck]
         if row.empty:
             continue
 
@@ -112,7 +119,7 @@ def build_map_figure(
                         mode="markers",
                         marker=dict(
                             size=12,
-                            color="white",
+                            color=_TRANSPARENT,
                             line=dict(width=2.2, color=outline_color),
                         ),
                         showlegend=False,
@@ -125,7 +132,7 @@ def build_map_figure(
                     locations=[plotly_name],
                     locationmode="country names",
                     z=[0],
-                    colorscale=[[0, "white"], [1, "white"]],
+                    colorscale=[[0, _TRANSPARENT], [1, _TRANSPARENT]],
                     showscale=False,
                     marker_line_color=outline_color,
                     marker_line_width=2.8 if in_scope else 1.8,
