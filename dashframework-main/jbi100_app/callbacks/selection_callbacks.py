@@ -99,7 +99,6 @@ def init_or_update_country_dropdown(vis_country_value, cur_sel_store):
     return names_from_store(merged), opts, warn, merged
 
 
-# ✅ merged clear: clears selection + brush(filter)
 @callback(
     Output("vis-country", "value", allow_duplicate=True),
     Output("vis-selection-store", "data", allow_duplicate=True),
@@ -109,7 +108,7 @@ def init_or_update_country_dropdown(vis_country_value, cur_sel_store):
 )
 def clear_all(n):
     if n and n > 0:
-        return [], [], None
+        return no_update, no_update, None   # ✅ keep selection, clear filter only
     return no_update, no_update, no_update
 
 

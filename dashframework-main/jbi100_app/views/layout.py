@@ -199,9 +199,8 @@ layout = html.Div(
 
                         html.Div(id="vis-warnings", style={"fontSize": "11px", "color": "#b91c1c"}),
 
-                        # ✅ merged button
                         html.Button(
-                            "Clear selection",
+                            "Clear filter",
                             id="vis-clear-all",
                             n_clicks=0,
                             style={"width": "100%"},
@@ -310,15 +309,39 @@ layout = html.Div(
                                             children=[
                                                 dcc.Dropdown(id="vis-hist-attr", options=[], placeholder="Attribute", clearable=False),
                                                 html.Div(
+                                                    style={
+                                                        "position": "relative",
+                                                        "paddingTop": "34px",  # space for numbers + label above
+                                                    },
                                                     children=[
+                                                        # ✅ Centered label ABOVE slider
+                                                        html.Div(
+                                                            "Bin size",
+                                                            style={
+                                                                "position": "absolute",
+                                                                "top": "0px",
+                                                                "left": "50%",
+                                                                "transform": "translateX(-50%)",
+                                                                "fontSize": "14px",
+                                                                "fontWeight": "800",
+                                                                "color": "#1f2937",
+                                                                "pointerEvents": "none",
+                                                            },
+                                                        ),
+
                                                         dcc.Slider(
                                                             id="vis-hist-bins",
-                                                            min=5, max=60, step=1, value=30,
-                                                            tooltip={"placement": "bottom"},
+                                                            min=5,
+                                                            max=60,
+                                                            step=1,
+                                                            value=32,
+                                                            marks={5: "5", 60: "60"},
+                                                            included=False,
+                                                            tooltip={"placement": "top"},
                                                         ),
-                                                        html.Div("Bin size", style={"textAlign": "center", "fontSize": "14px", "fontWeight": "700"}),
-                                                    ]
+                                                    ],
                                                 ),
+
                                             ],
                                         ),
 

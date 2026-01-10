@@ -109,6 +109,16 @@ button {
   min-height: 0;        /* IMPORTANT: prevents overflow in flex */
 }
 
+.rc-slider-mark {
+    top: -22px;
+}
+
+.rc-slider-mark-text {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+}
+
 /* make plotly graph obey the container and not create scroll */
 .vis-plot-wrap .dash-graph{
   height: 100%;
