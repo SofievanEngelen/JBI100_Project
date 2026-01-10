@@ -10,9 +10,14 @@ from jbi100_app.state.selection_store import SelectedCountry
 from jbi100_app.data.constants import BASE_GREY, FADED_GREY
 
 
+# ---------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------
 def _build_discrete_colorscale(code_to_colour: dict[int, str], cmax: int) -> list[list[object]]:
     """
-    Build a piecewise-constant Plotly colorscale for integer codes in [0..cmax].
+    Build a piecewise-constant Plotly colorscale for integer codes.
+
+    Each integer maps to a flat colour segment.
     """
     eps = 1e-6
     scale: list[list[object]] = []
@@ -37,17 +42,24 @@ def _build_discrete_colorscale(code_to_colour: dict[int, str], cmax: int) -> lis
     return scale
 
 
+# ---------------------------------------------------------------------
+# Main builder
+# ---------------------------------------------------------------------
 def build_pcp_figure(
     df: pd.DataFrame,
     ui_category: str | None,
-    geo_scale: str,                  # kept for signature compatibility
-    in_mask: pd.Series,              # kept for signature compatibility
+    geo_scale: str,                 # kept for compatibility
+    in_mask: pd.Series,             # kept for compatibility
     selection_store: list[SelectedCountry],
     max_dims: int = 8,
     brush_countries: list[str] | None = None,
-    uirevision: str | None = None,    # ✅ RESTORED
+    uirevision: str | None = None,
     dims_override: list[str] | None = None,
+    show_selected_only: bool = False,   # ✅ NEW
 ) -> go.Figure:
+    # ------------------------------------------------------------
+    # Dimensions
+    # ------------------------------------------------------------
     if dims_override:
         dims = [d for d in dims_override if d in df.columns][:max_dims]
     else:
@@ -69,19 +81,12 @@ def build_pcp_figure(
             margin=MARGIN,
             title=None,
             showlegend=False,
-            uirevision=uirevision,
         )
         return fig
 
     if df is None or df.empty or len(dims) < 2:
         fig = go.Figure()
-        fig.update_layout(
-            template="plotly_white",
-            margin=MARGIN,
-            title=None,
-            showlegend=False,
-            uirevision=uirevision,
-        )
+        fig.update_layout(template="plotly_white", margin=MARGIN, uirevision=uirevision)
         return fig
 
     # ------------------------------------------------------------
@@ -92,16 +97,21 @@ def build_pcp_figure(
         work[c] = coerce_numeric(work[c])
         med = work[c].median(skipna=True)
         work[c] = work[c].fillna(med)
+
         mn, mx = float(work[c].min()), float(work[c].max())
         if np.isfinite(mn) and np.isfinite(mx) and mx > mn:
             work[c] = (work[c] - mn) / (mx - mn)
         else:
             work[c] = 0.0
 
-    # ------------------------------------------------------------
-    # Build colour codes
-    # ------------------------------------------------------------
     countries = work["Country"].astype(str).to_numpy()
+
+    # ------------------------------------------------------------
+    # Codes per row
+    # 0 = faded (out of scope)
+    # 1 = base grey
+    # 2+ = selected countries
+    # ------------------------------------------------------------
     codes = np.ones(len(work), dtype=int)
 
     brush_set = set(str(x) for x in (brush_countries or []) if x)
@@ -110,47 +120,48 @@ def build_pcp_figure(
         codes[~brushed] = 0
 
     selected_names: list[str] = []
-    sel_main: dict[str, str] = {}
-    sel_light: dict[str, str] = {}
-
+    sel_colour_map: dict[str, str] = {}
     for d in (selection_store or []):
         if not isinstance(d, dict):
             continue
         n = d.get("country_name")
         c = d.get("colour_rgb")
-        cl = d.get("colour_rgb_light")
-        if not n or not c or not cl:
+        if not n or not c:
             continue
-        n = str(n)
-        if n not in sel_main:
+        if n not in sel_colour_map:
             selected_names.append(n)
-            sel_main[n] = str(c)
-            sel_light[n] = str(cl)
+            sel_colour_map[n] = c
 
     name_to_code = {name: 2 + i for i, name in enumerate(selected_names)}
 
     for i, cname in enumerate(countries.tolist()):
         code = name_to_code.get(cname)
-        if code is None:
-            continue
-        if brush_set and cname not in brush_set:
-            codes[i] = code + len(selected_names)
-        else:
+        if code is not None:
             codes[i] = code
+
+    # ------------------------------------------------------------
+    # ✅ Selected-only visibility mode
+    # ------------------------------------------------------------
+    if show_selected_only:
+        mask = codes >= 2
+        if mask.any():
+            codes = np.where(mask, codes, np.nan)
+        else:
+            codes = np.full_like(codes, np.nan, dtype=float)
 
     # ------------------------------------------------------------
     # Discrete colorscale
     # ------------------------------------------------------------
+    k = len(selected_names)
+    cmax = 2 + max(0, k - 1)
+
     code_to_colour: dict[int, str] = {
         0: FADED_GREY,
         1: BASE_GREY,
     }
-
     for i, name in enumerate(selected_names):
-        code_to_colour[2 + i] = sel_main[name]
-        code_to_colour[2 + len(selected_names) + i] = sel_light[name]
+        code_to_colour[2 + i] = sel_colour_map[name]
 
-    cmax = 2 + (2 * max(0, len(selected_names) - 1))
     colourscale = _build_discrete_colorscale(code_to_colour, cmax=cmax)
 
     dimensions = [
@@ -181,6 +192,7 @@ def build_pcp_figure(
         margin=MARGIN,
         title=None,
         showlegend=False,
-        uirevision=uirevision,   # ✅ APPLIED
+        uirevision=uirevision,
     )
+
     return fig

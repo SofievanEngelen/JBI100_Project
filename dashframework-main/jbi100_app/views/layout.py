@@ -226,9 +226,6 @@ layout = html.Div(
 
                         html.Div("Selected", style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"}),
                         html.Div(id="vis-selected-text", style={"fontSize": "11px", "color": "#516074"}),
-                    
-                        html.Div(id="debug-pcp-brush-log", style={"display": "none"}),
-
 
                         # Stores
                         dcc.Store(id="pcp-brush-store", data=None),
@@ -419,7 +416,27 @@ layout = html.Div(
                         # ---------- Bottom row ----------
                         _panel(
                             children=[
-                                html.Div("Parallel Coordinates", style={"fontSize": "14px", "fontWeight": "900", "color": "#3a3a3a"}),
+                                html.Div(
+                                    style={
+                                        "display": "flex",
+                                        "justifyContent": "space-between",
+                                        "alignItems": "center",
+                                    },
+                                    children=[
+                                        html.Div(
+                                            "Parallel Coordinates",
+                                            style={"fontSize": "14px", "fontWeight": "900", "color": "#3a3a3a"},
+                                        ),
+
+                                        dcc.Checklist(
+                                            id="vis-pcp-selected-only",
+                                            options=[{"label": "Selected only", "value": "on"}],
+                                            value=[],
+                                            style={"fontSize": "12px"},
+                                            inputStyle={"marginRight": "6px"},
+                                        ),
+                                    ],
+                                ),
                                 _plot_wrap(
                                     dcc.Graph(
                                         id="vis-pcp",

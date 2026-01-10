@@ -91,6 +91,7 @@ def _brush_countries_from_store(brush_store) -> list[str]:
     Input("vis-geo-scope-dd", "value"),
     Input("vis-attr-pool", "value"),
     Input("vis-clear-all", "n_clicks"),  # bump uirevision to visually clear brush
+    Input("vis-pcp-selected-only", "value"),
     prevent_initial_call=False,
 )
 def update_pcp(
@@ -100,10 +101,13 @@ def update_pcp(
     geo_scope,
     dims_override,
     clear_clicks,
+    selected_only_toggle,
 ):
     df = _safe_df()
     if df.empty:
         return no_update, ""
+
+    show_selected_only = "on" in (selected_only_toggle or [])
 
     selection_store = normalize_selection_store(selection_store)
     brush_countries = _brush_countries_from_store(brush_store)
@@ -115,12 +119,13 @@ def update_pcp(
         df=df,
         ui_category=None,
         geo_scale=geo_scale or "global",
-        in_mask=None,  # kept for signature compatibility
+        in_mask=None,
         selection_store=selection_store,
         max_dims=8,
         brush_countries=brush_countries,
         uirevision=uirev,
         dims_override=dims_override,
+        show_selected_only=show_selected_only,
     )
 
     pop_text = f"Population: {geo_scale or 'global'}"

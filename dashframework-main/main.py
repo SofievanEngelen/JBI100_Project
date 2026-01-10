@@ -8,7 +8,6 @@ from jbi100_app.views.menu import layout as menu_layout
 
 from jbi100_app.callbacks import onboarding_callbacks  # noqa: F401
 from jbi100_app.callbacks import right_panel_callbacks  # noqa: F401
-import jbi100_app.callbacks.debug_callbacks
 from jbi100_app.callbacks import selection_callbacks
 from jbi100_app.callbacks import map_callbacks
 from jbi100_app.callbacks import scatter_callbacks
