@@ -13,9 +13,6 @@ from jbi100_app.data.constants import BASE_GREY, FADED_GREY
 def _build_discrete_colorscale(code_to_colour: dict[int, str], cmax: int) -> list[list[object]]:
     """
     Build a piecewise-constant Plotly colorscale for integer codes in [0..cmax].
-
-    Plotly expects colorscale positions in [0..1] and (practically) sorted.
-    We create flat steps so each integer code maps to an exact colour.
     """
     eps = 1e-6
     scale: list[list[object]] = []
@@ -33,9 +30,7 @@ def _build_discrete_colorscale(code_to_colour: dict[int, str], cmax: int) -> lis
         scale.append([left, col])
         scale.append([right, col])
 
-    # Must be sorted by the numeric position
     scale.sort(key=lambda x: float(x[0]))
-    # Ensure last stop hits 1.0 (Plotly can be picky)
     if scale and float(scale[-1][0]) < 1.0:
         scale.append([1.0, scale[-1][1]])
 
@@ -45,12 +40,12 @@ def _build_discrete_colorscale(code_to_colour: dict[int, str], cmax: int) -> lis
 def build_pcp_figure(
     df: pd.DataFrame,
     ui_category: str | None,
-    geo_scale: str,                 # kept for signature compatibility
-    in_mask: pd.Series,             # kept for signature compatibility
+    geo_scale: str,                  # kept for signature compatibility
+    in_mask: pd.Series,              # kept for signature compatibility
     selection_store: list[SelectedCountry],
     max_dims: int = 8,
     brush_countries: list[str] | None = None,
-    uirevision: str | None = None,
+    uirevision: str | None = None,    # ✅ RESTORED
     dims_override: list[str] | None = None,
 ) -> go.Figure:
     if dims_override:
@@ -74,16 +69,23 @@ def build_pcp_figure(
             margin=MARGIN,
             title=None,
             showlegend=False,
+            uirevision=uirevision,
         )
         return fig
 
     if df is None or df.empty or len(dims) < 2:
         fig = go.Figure()
-        fig.update_layout(template="plotly_white", margin=MARGIN, uirevision=uirevision)
+        fig.update_layout(
+            template="plotly_white",
+            margin=MARGIN,
+            title=None,
+            showlegend=False,
+            uirevision=uirevision,
+        )
         return fig
 
     # ------------------------------------------------------------
-    # Normalize values to 0..1 (must match what constraintrange uses)
+    # Normalize values to 0..1
     # ------------------------------------------------------------
     work = df[["Country"] + dims].copy()
     for c in dims:
@@ -97,62 +99,64 @@ def build_pcp_figure(
             work[c] = 0.0
 
     # ------------------------------------------------------------
-    # Build codes per row:
-    # 0 = faded (only when filter exists)
-    # 1 = base grey
-    # 2.. = selected countries (one code per selected in store order)
+    # Build colour codes
     # ------------------------------------------------------------
     countries = work["Country"].astype(str).to_numpy()
-
-    # Start as base grey
     codes = np.ones(len(work), dtype=int)
 
     brush_set = set(str(x) for x in (brush_countries or []) if x)
     if brush_set:
         brushed = np.isin(countries, np.array(list(brush_set), dtype=str))
-        codes[~brushed] = 0  # faded when filter exists
+        codes[~brushed] = 0
 
-    # Selected order = order in selection_store (stable)
     selected_names: list[str] = []
-    sel_colour_map: dict[str, str] = {}
+    sel_main: dict[str, str] = {}
+    sel_light: dict[str, str] = {}
+
     for d in (selection_store or []):
         if not isinstance(d, dict):
             continue
         n = d.get("country_name")
         c = d.get("colour_rgb")
-        if not n or not c:
+        cl = d.get("colour_rgb_light")
+        if not n or not c or not cl:
             continue
         n = str(n)
-        c = str(c)
-        if n not in sel_colour_map:
+        if n not in sel_main:
             selected_names.append(n)
-            sel_colour_map[n] = c
+            sel_main[n] = str(c)
+            sel_light[n] = str(cl)
 
     name_to_code = {name: 2 + i for i, name in enumerate(selected_names)}
 
-    # Apply selected overrides
     for i, cname in enumerate(countries.tolist()):
         code = name_to_code.get(cname)
-        if code is not None:
+        if code is None:
+            continue
+        if brush_set and cname not in brush_set:
+            codes[i] = code + len(selected_names)
+        else:
             codes[i] = code
 
     # ------------------------------------------------------------
-    # Discrete colorscale mapping
+    # Discrete colorscale
     # ------------------------------------------------------------
-    k = len(selected_names)
-    cmax = max(1, 1 + k + 1)  # ensure room; codes go up to 2 + k - 1
-
-    # Map each integer code to an exact colour string
     code_to_colour: dict[int, str] = {
         0: FADED_GREY,
         1: BASE_GREY,
     }
+
     for i, name in enumerate(selected_names):
-        code_to_colour[2 + i] = sel_colour_map[name]
+        code_to_colour[2 + i] = sel_main[name]
+        code_to_colour[2 + len(selected_names) + i] = sel_light[name]
 
-    colourscale = _build_discrete_colorscale(code_to_colour, cmax=(2 + max(0, k - 1)))
+    cmax = 2 + (2 * max(0, len(selected_names) - 1))
+    colourscale = _build_discrete_colorscale(code_to_colour, cmax=cmax)
 
-    dimensions = [{"label": pretty_metric(c), "values": work[c].to_numpy()} for c in dims]
+    dimensions = [
+        {"label": pretty_metric(c), "values": work[c].to_numpy()}
+        for c in dims
+    ]
 
     fig = go.Figure(
         data=[
@@ -161,7 +165,7 @@ def build_pcp_figure(
                     color=codes.astype(float),
                     colorscale=colourscale,
                     cmin=0,
-                    cmax=(2 + max(0, k - 1)),
+                    cmax=cmax,
                     showscale=False,
                 ),
                 dimensions=dimensions,
@@ -177,6 +181,6 @@ def build_pcp_figure(
         margin=MARGIN,
         title=None,
         showlegend=False,
-        uirevision=uirevision,
+        uirevision=uirevision,   # ✅ APPLIED
     )
     return fig

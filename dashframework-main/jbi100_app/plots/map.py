@@ -1,15 +1,10 @@
-# jbi100_app/plots/map.py
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-from jbi100_app.data.constants import (
-    COLOR_SCALE,
-    BASE_GREY,
-    SMALL_COUNTRY_AREA_KM2,
-)
+from jbi100_app.data.constants import COLOR_SCALE, SMALL_COUNTRY_AREA_KM2
 from jbi100_app.plots.common import coerce_numeric, pretty_metric
 from jbi100_app.state.selection_store import SelectedCountry
 
@@ -31,184 +26,73 @@ def build_map_figure(
     plot_df = df.copy()
     plot_df["_z"] = coerce_numeric(plot_df[metric])
 
-    geo_scale = (geo_scale or "global").lower().strip()
+    selected_names = {s["country_name"] for s in selection_store}
+    brush_set = set(brush_countries or [])
 
-    # ------------------------------------------------------------
-    # Determine whether continent/region scope is active
-    # (this logic is UNCHANGED)
-    # ------------------------------------------------------------
-    scope_active = False
-    if geo_scale in ("continent", "region") and in_mask is not None and len(in_mask) == len(plot_df):
-        mask_bool = in_mask.to_numpy(dtype=bool)
-        scope_active = bool(mask_bool.any() and (~mask_bool).any())
-
-    # ------------------------------------------------------------
-    # Shared horizontal colorbar (UNCHANGED)
-    # ------------------------------------------------------------
-    colorbar_cfg = dict(
-        title=None,
-        orientation="h",
-        x=0.5,
-        xanchor="center",
-        y=1.08,
-        yanchor="top",
-        len=1.0,
-        thickness=18,
-        tickfont=dict(size=14),
+    # ------------------------------------------------------------------
+    # 1️⃣ Base choropleth: ALL countries, metric colours
+    # ------------------------------------------------------------------
+    fig.add_trace(
+        go.Choropleth(
+            locations=plot_df["_PLOTLY_NAME"],
+            locationmode="country names",
+            z=plot_df["_z"],
+            colorscale=COLOR_SCALE,
+            marker_line_color="rgba(255,255,255,0.35)",
+            marker_line_width=0.5,
+            colorbar=dict(orientation="h"),
+            hovertemplate="<b>%{text}</b><br>"
+            + pretty_metric(metric)
+            + ": %{z}<extra></extra>",
+            text=plot_df["Country"],
+        )
     )
 
-    zmin = float(plot_df["_z"].min())
-    zmax = float(plot_df["_z"].max())
+    # ------------------------------------------------------------------
+    # 2️⃣ Out-of-scope countries → white (but still visible)
+    # ------------------------------------------------------------------
+    out_mask = pd.Series(False, index=plot_df.index)
 
-    # ------------------------------------------------------------
-    # Base choropleth(s)
-    # ------------------------------------------------------------
-    if scope_active:
-        # =========================
-        # Continent / Region mode
-        # (COMPLETELY UNCHANGED)
-        # =========================
-        mask_bool = in_mask.to_numpy(dtype=bool)  # type: ignore[union-attr]
-        in_df = plot_df.loc[mask_bool].copy()
-        out_df = plot_df.loc[~mask_bool].copy()
+    if in_mask is not None:
+        out_mask |= ~in_mask
 
-        if not out_df.empty:
-            fig.add_trace(
-                go.Choropleth(
-                    locations=out_df["_PLOTLY_NAME"],
-                    locationmode="country names",
-                    z=[1.0] * len(out_df),
-                    text=out_df["Country"],
-                    customdata=np.stack([out_df["Country"]], axis=-1),
-                    colorscale=[[0, "rgba(255,255,255,1)"], [1, "rgba(255,255,255,1)"]],
-                    showscale=False,
-                    marker_line_color="rgba(200,200,200,0.55)",
-                    marker_line_width=0.6,
-                    hoverinfo="skip",
-                )
-            )
+    if brush_set:
+        out_mask |= ~plot_df["Country"].isin(brush_set)
 
+    # do NOT white-out selected countries
+    out_mask &= ~plot_df["Country"].isin(selected_names)
+
+    if out_mask.any():
         fig.add_trace(
             go.Choropleth(
-                locations=in_df["_PLOTLY_NAME"],
+                locations=plot_df.loc[out_mask, "_PLOTLY_NAME"],
                 locationmode="country names",
-                z=in_df["_z"],
-                zmin=zmin,
-                zmax=zmax,
-                text=in_df["Country"],
-                customdata=np.stack([in_df["Country"]], axis=-1),
-                colorscale=COLOR_SCALE,
-                colorbar=colorbar_cfg,
-                marker_line_color="rgba(255,255,255,0.35)",
+                z=[0] * int(out_mask.sum()),
+                colorscale=[[0, "white"], [1, "white"]],
+                showscale=False,
+                marker_line_color="rgba(180,180,180,0.6)",
                 marker_line_width=0.5,
-                hovertemplate="<b>%{text}</b><br>"
-                + pretty_metric(metric)
-                + ": %{z}<extra></extra>",
+                hoverinfo="skip",
             )
         )
 
-    else:
-        # =========================
-        # GLOBAL MODE
-        # =========================
-        brush_set = set(str(x) for x in (brush_countries or []) if x)
-
-        filter_active = False
-        if brush_set:
-            brushed_mask = plot_df["Country"].astype(str).isin(brush_set).to_numpy(dtype=bool)
-            filter_active = bool(brushed_mask.any() and (~brushed_mask).any())
-
-        if filter_active:
-            in_df = plot_df.loc[brushed_mask].copy()
-            out_df = plot_df.loc[~brushed_mask].copy()
-
-            # OUTSIDE FILTER — SAME AS CONTINENT/REGION OUT-OF-SCOPE
-            if not out_df.empty:
-                fig.add_trace(
-                    go.Choropleth(
-                        locations=out_df["_PLOTLY_NAME"],
-                        locationmode="country names",
-                        z=[1.0] * len(out_df),
-                        text=out_df["Country"],
-                        customdata=np.stack([out_df["Country"]], axis=-1),
-                        colorscale=[[0, "rgba(255,255,255,1)"], [1, "rgba(255,255,255,1)"]],
-                        showscale=False,
-                        marker_line_color="rgba(200,200,200,0.55)",
-                        marker_line_width=0.6,
-                        hoverinfo="skip",
-                    )
-                )
-
-            # INSIDE FILTER — NORMAL GLOBAL COLOURING
-            fig.add_trace(
-                go.Choropleth(
-                    locations=in_df["_PLOTLY_NAME"],
-                    locationmode="country names",
-                    z=in_df["_z"],
-                    zmin=zmin,
-                    zmax=zmax,
-                    text=in_df["Country"],
-                    customdata=np.stack([in_df["Country"]], axis=-1),
-                    colorscale=COLOR_SCALE,
-                    colorbar=colorbar_cfg,
-                    marker_line_color="rgba(255,255,255,0.35)",
-                    marker_line_width=0.5,
-                    hovertemplate="<b>%{text}</b><br>"
-                    + pretty_metric(metric)
-                    + ": %{z}<extra></extra>",
-                )
-            )
-
-        else:
-            # ORIGINAL GLOBAL BEHAVIOUR (UNCHANGED)
-            fig.add_trace(
-                go.Choropleth(
-                    locations=plot_df["_PLOTLY_NAME"],
-                    locationmode="country names",
-                    z=plot_df["_z"],
-                    zmin=zmin,
-                    zmax=zmax,
-                    text=plot_df["Country"],
-                    customdata=np.stack([plot_df["Country"]], axis=-1),
-                    colorscale=COLOR_SCALE,
-                    colorbar=colorbar_cfg,
-                    marker_line_color="rgba(255,255,255,0.35)",
-                    marker_line_width=0.5,
-                    hovertemplate="<b>%{text}</b><br>"
-                    + pretty_metric(metric)
-                    + ": %{z}<extra></extra>",
-                )
-            )
-
-    # ------------------------------------------------------------
-    # Brush outline (UNCHANGED)
-    # ------------------------------------------------------------
-    if brush_countries:
-        brush_df = plot_df[plot_df["Country"].isin(brush_countries)].copy()
-        if not brush_df.empty:
-            fig.add_trace(
-                go.Choropleth(
-                    locations=brush_df["_PLOTLY_NAME"],
-                    locationmode="country names",
-                    z=[1.0] * len(brush_df),
-                    text=brush_df["Country"],
-                    customdata=np.stack([brush_df["Country"]], axis=-1),
-                    colorscale=[[0, "rgba(0,0,0,0)"], [1, "rgba(0,0,0,0)"]],
-                    showscale=False,
-                    marker_line_color="rgba(255,255,255,0.35)",
-                    marker_line_width=1.5,
-                    hoverinfo="skip",
-                )
-            )
-
-    # ------------------------------------------------------------
-    # Selected countries (UNCHANGED)
-    # ------------------------------------------------------------
+    # ------------------------------------------------------------------
+    # 3️⃣ Selected countries → outline only
+    # ------------------------------------------------------------------
     for item in selection_store:
-        cname = item.get("country_name")
-        ccol = item.get("colour_rgb") or "rgb(180,35,24)"
-        if not cname:
-            continue
+        cname = item["country_name"]
+
+        # scope check
+        in_geo = True
+        if in_mask is not None:
+            row = plot_df["Country"] == cname
+            if row.any():
+                in_geo = bool(in_mask.loc[row].iloc[0])
+
+        in_filter = not brush_set or cname in brush_set
+        in_scope = in_geo and in_filter
+
+        outline_color = item["colour_rgb"] if in_scope else item["colour_rgb_light"]
 
         row = plot_df.loc[plot_df["Country"] == cname]
         if row.empty:
@@ -217,46 +101,34 @@ def build_map_figure(
         plotly_name = row.iloc[0].get("_PLOTLY_NAME")
         iso3 = row.iloc[0].get("_ISO3")
         area = pd.to_numeric(row.iloc[0].get("land_area_km2"), errors="coerce")
-
         is_small = bool(np.isfinite(area) and area < SMALL_COUNTRY_AREA_KM2)
 
         if is_small:
-            if isinstance(iso3, str) and iso3.strip():
+            if isinstance(iso3, str) and iso3:
                 fig.add_trace(
                     go.Scattergeo(
                         locations=[iso3],
                         locationmode="ISO-3",
                         mode="markers",
-                        marker=dict(size=12, color=ccol, line=dict(width=1.5, color="white")),
-                        hoverinfo="skip",
+                        marker=dict(
+                            size=12,
+                            color="white",
+                            line=dict(width=2.2, color=outline_color),
+                        ),
                         showlegend=False,
+                        hoverinfo="skip",
                     )
                 )
-            elif isinstance(plotly_name, str) and plotly_name.strip():
-                fig.add_trace(
-                    go.Scattergeo(
-                        locations=[plotly_name],
-                        locationmode="country names",
-                        mode="markers",
-                        marker=dict(size=12, color=ccol, line=dict(width=1.5, color="white")),
-                        hoverinfo="skip",
-                        showlegend=False,
-                    )
-                )
-            continue
-
-        if isinstance(plotly_name, str) and plotly_name.strip():
+        else:
             fig.add_trace(
                 go.Choropleth(
                     locations=[plotly_name],
                     locationmode="country names",
-                    z=[1.0],
-                    text=[cname],
-                    customdata=[[cname]],
-                    colorscale=[[0, "rgba(0,0,0,0)"], [1, "rgba(0,0,0,0)"]],
+                    z=[0],
+                    colorscale=[[0, "white"], [1, "white"]],
                     showscale=False,
-                    marker_line_color=ccol,
-                    marker_line_width=2.8,
+                    marker_line_color=outline_color,
+                    marker_line_width=2.8 if in_scope else 1.8,
                     hoverinfo="skip",
                 )
             )
@@ -264,12 +136,7 @@ def build_map_figure(
     fig.update_layout(
         template="plotly_white",
         margin=dict(l=0, r=0, t=0, b=0),
-        title=None,
-        geo=dict(
-            showframe=False,
-            showcoastlines=False,
-            projection_type="natural earth",
-        ),
+        geo=dict(showframe=False, showcoastlines=False),
     )
 
     return fig
