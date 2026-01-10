@@ -111,6 +111,24 @@ def clear_all(n):
         return no_update, no_update, None   # ✅ keep selection, clear filter only
     return no_update, no_update, no_update
 
+from dash import no_update
+
+@callback(
+    Output("vis-attr-pool", "value", allow_duplicate=True),
+    Input("vis-attr-pool", "value"),
+    prevent_initial_call=True,
+)
+def clamp_attr_pool(v):
+    if v is None:
+        return []
+    if not isinstance(v, list):
+        v = [v]
+    v = [str(x) for x in v if x]
+    if len(v) <= 8:
+        return no_update
+    return v[:8]
+
+
 
 @callback(
     Output("vis-country", "value", allow_duplicate=True),

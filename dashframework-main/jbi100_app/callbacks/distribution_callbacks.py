@@ -24,15 +24,13 @@ def _safe_df() -> pd.DataFrame:
     Output("vis-hist-attr", "value"),
     Output("vis-violin-attr", "options"),
     Output("vis-violin-attr", "value"),
-    Input("vis-category", "value"),
+    Input("vis-geo-scale", "value"),
     State("vis-hist-attr", "value"),
     State("vis-violin-attr", "value"),
 )
-def refresh_single_attr_options(ui_category, cur_hist, cur_violin):
+def refresh_single_attr_options(_geo_scale, cur_hist, cur_violin):
     df = _safe_df()
-    cols = metric_cols_for_category(df, ui_category)
-    if not cols:
-        cols = all_numeric_metrics(df)
+    cols = all_numeric_metrics(df)
 
     opts = [{"label": pretty_metric(c), "value": c} for c in cols]
     if not cols:

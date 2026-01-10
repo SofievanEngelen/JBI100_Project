@@ -4,13 +4,30 @@ from __future__ import annotations
 # -----------------------------
 # Selection palette (requested)
 # -----------------------------
+# SELECTION_COLOR_POOL = [
+#     "rgb(41, 102, 43)",   #4DF1CE - Dark Green
+#     "rgb(174, 0, 255)",   #AE00FF - Purple
+#     "rgb(80, 185, 83)",   #50B953 - Green
+#     "rgb(64, 35, 255)",   #4023FF - Dark Blue -> orange
+#     "rgb(100, 217, 240)", #64D9F0 - Light Blue - yellow
+#     "rgb(241, 110, 195)", #F16EC3 - Pink
+# ]
 SELECTION_COLOR_POOL = [
-    "rgb(41, 102, 43)",   #4DF1CE - Dark Green
-    "rgb(174, 0, 255)",   #AE00FF - Purple
-    "rgb(80, 185, 83)",   #50B953 - Green
-    "rgb(64, 35, 255)",   #4023FF - Dark Blue
-    "rgb(100, 217, 240)", #64D9F0 - Light Blue
-    "rgb(241, 110, 195)", #F16EC3 - Pink
+    "rgb(213, 94, 0)",     # Orange
+    "rgb(174, 0, 255)",    # Purple
+    "rgb(204, 121, 167)",  # Magenta
+    "rgb(0, 158, 115)",    # Green
+    "rgb(240, 228, 66)",   # Yellow
+    "rgb(180, 35, 24)",    # Red
+]
+
+SELECTION_COLOR_POOL_LIGHT = [
+    "rgb(241, 193, 163)",  # light orange
+    "rgb(220, 179, 255)",  # light purple
+    "rgb(235, 203, 219)",  # light magenta
+    "rgb(184, 226, 214)",  # light green
+    "rgb(250, 244, 181)",  # light yellow
+    "rgb(232, 190, 186)",  # light red
 ]
 
 
@@ -46,7 +63,7 @@ SMALL_COUNTRY_AREA_KM2 = 1500  # tweak if you like
 
 # Plotly choropleth colourscale (your app already expects this name)
 # Keep your current scale here if you had one; this is a safe default.
-COLOR_SCALE = "YlOrRd"
+COLOR_SCALE = "PuBu"
 
 # Histogram styling (only used for histogram internals)
 HIST_IN_SCOPE_RGBA = BASE_GREY

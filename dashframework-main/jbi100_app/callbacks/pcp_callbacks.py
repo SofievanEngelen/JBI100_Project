@@ -57,26 +57,40 @@ def _pcp_normalized_work(df: pd.DataFrame, ui_category: str | None, max_dims: in
 @callback(
     Output("vis-pcp", "figure"),
     Output("vis-population-text", "children"),
-    Input("vis-category", "value"),
+    Input("vis-attr-pool", "value"),   # ✅ instead of vis-category
     Input("vis-geo-scale", "value"),
     Input("vis-selection-store", "data"),
+    Input("pcp-brush-store", "data"),  # ✅ so PCP fades lines when filter exists
 )
-def update_pcp(ui_category, geo_scale, selection_store):
+def update_pcp(attr_pool, geo_scale, selection_store, brush_data):
     df = _safe_df()
+
+    # normalize pool -> list[str], max 8
+    dims_override = []
+    if isinstance(attr_pool, list):
+        dims_override = [str(x) for x in attr_pool if x]
+    elif isinstance(attr_pool, str) and attr_pool:
+        dims_override = [attr_pool]
+    dims_override = dims_override[:8]
 
     selection_store = normalize_selection_store(selection_store)
     selected_names = names_from_store(selection_store)
     focus = selected_names[0] if selected_names else None
-
     in_mask = geo_mask(df, geo_scale or "global", focus) if not df.empty else None
+
+    brush = []
+    if isinstance(brush_data, dict) and brush_data.get("countries"):
+        brush = [str(x) for x in brush_data.get("countries", []) if x]
 
     fig = build_pcp_figure(
         df=df,
-        ui_category=ui_category,
+        ui_category=None,                 # ignored when dims_override set
         geo_scale=geo_scale or "global",
         in_mask=in_mask,
         selection_store=selection_store,
         max_dims=8,
+        brush_countries=brush,
+        dims_override=dims_override or None,
     )
 
     pop_text = (
@@ -84,8 +98,8 @@ def update_pcp(ui_category, geo_scale, selection_store):
         if (geo_scale or "global") == "global"
         else f"Population: {geo_scale} (focus={focus or 'none'})"
     )
-
     return fig, pop_text
+
 
 
 # ---------------------------------------------------------------------

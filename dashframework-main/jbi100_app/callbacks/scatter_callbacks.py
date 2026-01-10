@@ -51,17 +51,14 @@ def extract_scatter_brush_countries(selected_data, df: pd.DataFrame) -> list[str
     Output("vis-scatter-y", "options"),
     Output("vis-scatter-x", "value"),
     Output("vis-scatter-y", "value"),
-    Input("vis-category", "value"),
+    Input("vis-geo-scale", "value"),
     State("vis-scatter-x", "value"),
     State("vis-scatter-y", "value"),
 )
-def refresh_scatter_attr_options(ui_category, cur_x, cur_y):
+def refresh_scatter_attr_options(_geo_scale, cur_x, cur_y):
     df = _safe_df()
 
-    cols = metric_cols_for_category(df, ui_category)
-    if len(cols) < 2:
-        cols = all_numeric_metrics(df)
-
+    cols = all_numeric_metrics(df)
     opts = [{"label": pretty_metric(c), "value": c} for c in cols]
     if not cols:
         return [], [], None, None

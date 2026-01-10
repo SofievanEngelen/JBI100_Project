@@ -51,10 +51,31 @@ def build_pcp_figure(
     max_dims: int = 8,
     brush_countries: list[str] | None = None,
     uirevision: str | None = None,
+    dims_override: list[str] | None = None,
 ) -> go.Figure:
-    dims = pick_pcp_dims(df, ui_category, max_dims=max_dims)
+    if dims_override:
+        dims = [d for d in dims_override if d in df.columns][:max_dims]
+    else:
+        dims = pick_pcp_dims(df, ui_category, max_dims=max_dims)
 
     MARGIN = dict(l=60, r=60, t=50, b=25)
+
+    if dims_override is not None and len(dims) < 2:
+        fig = go.Figure()
+        fig.add_annotation(
+            text="Select at least 2 attributes in the sidebar to view the PCP",
+            x=0.5, y=0.5, xref="paper", yref="paper",
+            showarrow=False,
+            font=dict(size=18, color="#374151"),
+            align="center",
+        )
+        fig.update_layout(
+            template="plotly_white",
+            margin=MARGIN,
+            title=None,
+            showlegend=False,
+        )
+        return fig
 
     if df is None or df.empty or len(dims) < 2:
         fig = go.Figure()

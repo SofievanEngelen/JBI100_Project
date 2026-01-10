@@ -185,17 +185,30 @@ layout = html.Div(
                         ),
 
 
+                        # html.Div(
+                        #     "Category (optional)",
+                        #     style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"},
+                        # ),
+                        # dcc.Dropdown(
+                        #     id="vis-category",
+                        #     options=_CATEGORY_OPTIONS,
+                        #     value=None,
+                        #     clearable=True,
+                        #     placeholder="Limit attribute options",
+                        # ),
+
                         html.Div(
-                            "Category (optional)",
+                            "Attributes (optional)",
                             style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"},
                         ),
                         dcc.Dropdown(
-                            id="vis-category",
-                            options=_CATEGORY_OPTIONS,
-                            value=None,
-                            clearable=True,
-                            placeholder="Limit attribute options",
+                            id="vis-attr-pool",
+                            options=_ATTR_OPTIONS,      # you already build this from numeric columns
+                            value=[],
+                            multi=True,
+                            placeholder="Limit attribute options (leave empty for all)",
                         ),
+
 
                         html.Div(id="vis-warnings", style={"fontSize": "11px", "color": "#b91c1c"}),
 

@@ -17,10 +17,22 @@ def _safe_df() -> pd.DataFrame:
 
 @callback(
     Output("vis-radar-plot", "figure"),
-    Input("vis-category", "value"),
+    Input("vis-attr-pool", "value"),
     Input("vis-selection-store", "data"),
 )
-def update_radar(ui_category, selection_store):
+def update_radar(attr_pool, selection_store):
     df = _safe_df()
     selection_store = normalize_selection_store(selection_store)
-    return build_radar_figure(df=df, ui_category=ui_category, selection_store=selection_store)
+
+    dims_override = []
+    if isinstance(attr_pool, list):
+        dims_override = [str(x) for x in attr_pool if x][:8]
+    elif isinstance(attr_pool, str) and attr_pool:
+        dims_override = [attr_pool]
+
+    return build_radar_figure(
+        df=df,
+        ui_category=None,
+        selection_store=selection_store,
+        dims_override=dims_override or None,
+    )

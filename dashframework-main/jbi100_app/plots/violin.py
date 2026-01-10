@@ -42,7 +42,7 @@ def build_violin_figure(
             go.Violin(
                 x=out_vals,
                 orientation="h",
-                box_visible=False,
+                box_visible=True,
                 meanline_visible=False,
                 points=False,
                 line_color=FADED_GREY_15,
@@ -56,7 +56,7 @@ def build_violin_figure(
         go.Violin(
             x=in_vals,
             orientation="h",
-            box_visible=False,
+            box_visible=True,
             meanline_visible=False,
             points=False,
             line_color=BASE_GREY_35,
