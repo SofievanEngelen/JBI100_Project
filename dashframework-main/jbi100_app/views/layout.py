@@ -1,4 +1,3 @@
-# jbi100_app/views/layout.py
 from __future__ import annotations
 
 from dash import html, dcc
@@ -130,7 +129,6 @@ layout = html.Div(
                     style_extra={
                         "display": "flex",
                         "flexDirection": "column",
-                        # "gap": "10px",
                         "padding": "12px 12px 25px 12px",
                         "height": "96.5%",
                         "minHeight": 0,
@@ -138,16 +136,16 @@ layout = html.Div(
                     children=[
                         html.Div(
                             "Visualization Tool",
-                            style={"fontSize": "16px",
-                                   "fontWeight": "900",
-                                   "color": "#0b1f3b",
-                                   "marginBottom": "10px"},
+                            style={
+                                "fontSize": "16px",
+                                "fontWeight": "900",
+                                "color": "#0b1f3b",
+                                "marginBottom": "10px",
+                            },
                         ),
                         html.Div(
                             "Select Country (max 5)",
-                            style={"fontSize": "11px",
-                                   "fontWeight": "800",
-                                   "color": "#243b53"},
+                            style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"},
                         ),
                         dcc.Dropdown(
                             id="vis-country",
@@ -159,9 +157,7 @@ layout = html.Div(
                         ),
                         html.Div(
                             "Select Scale",
-                            style={"fontSize": "11px",
-                                   "fontWeight": "800",
-                                   "color": "#243b53"},
+                            style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"},
                         ),
                         dcc.RadioItems(
                             id="vis-geo-scale",
@@ -216,10 +212,16 @@ layout = html.Div(
                         html.Div(id="vis-population-text", style={"fontSize": "11px", "color": "#516074"}),
                         html.Div("Selected", style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"}),
                         html.Div(id="vis-selected-text", style={"fontSize": "11px", "color": "#516074"}),
+
+                        # ✅ stores
                         dcc.Store(id="pcp-brush-store", data=None),
                         dcc.Store(id="vis-selection-store", data=[]),
+
+                        # ✅ NEW: persist PCP dimension order (so toggles don't reset dragged order)
+                        dcc.Store(id="pcp-dims-store", data=None),
                     ],
                 ),
+
                 # =========================
                 # Main area
                 # =========================
@@ -267,8 +269,8 @@ layout = html.Div(
                                         ),
                                         _plot_wrap(
                                             dcc.Graph(
-                                                id="vis-pcp",
-                                                config={**PLOT_CONFIG, "editable": True},
+                                                id="vis-map",
+                                                config=PLOT_CONFIG,
                                                 style={"height": "100%", "width": "100%"},
                                             )
                                         ),
@@ -302,14 +304,16 @@ layout = html.Div(
                                         ),
                                         html.Div(
                                             id="vis-controls-hist",
-                                            style={"display": "none", "gridTemplateColumns": "1fr 1fr", "gap": "18px", "alignItems": "center"},
+                                            style={
+                                                "display": "none",
+                                                "gridTemplateColumns": "1fr 1fr",
+                                                "gap": "18px",
+                                                "alignItems": "center",
+                                            },
                                             children=[
                                                 dcc.Dropdown(id="vis-hist-attr", options=[], placeholder="Attribute", clearable=False),
                                                 html.Div(
-                                                    style={
-                                                        "position": "relative",
-                                                        "paddingTop": "34px",
-                                                    },
+                                                    style={"position": "relative", "paddingTop": "34px"},
                                                     children=[
                                                         html.Div(
                                                             "Bin size",
@@ -389,6 +393,7 @@ layout = html.Div(
                                 ),
                             ],
                         ),
+
                         # ---------- Bottom row ----------
                         _panel(
                             children=[
@@ -397,18 +402,31 @@ layout = html.Div(
                                         "display": "flex",
                                         "justifyContent": "space-between",
                                         "alignItems": "center",
+                                        "gap": "14px",
                                     },
                                     children=[
                                         html.Div(
                                             "Parallel Coordinates",
                                             style={"fontSize": "14px", "fontWeight": "900", "color": "#3a3a3a"},
                                         ),
-                                        dcc.Checklist(
-                                            id="vis-pcp-selected-only",
-                                            options=[{"label": "Selected only", "value": "on"}],
-                                            value=[],
-                                            style={"fontSize": "12px"},
-                                            inputStyle={"marginRight": "6px"},
+                                        html.Div(
+                                            style={"display": "flex", "alignItems": "center", "gap": "14px"},
+                                            children=[
+                                                dcc.Checklist(
+                                                    id="vis-pcp-color-first-axis",
+                                                    options=[{"label": "Color by 1st axis", "value": "on"}],
+                                                    value=[],
+                                                    style={"fontSize": "12px"},
+                                                    inputStyle={"marginRight": "6px"},
+                                                ),
+                                                dcc.Checklist(
+                                                    id="vis-pcp-selected-only",
+                                                    options=[{"label": "Selected only", "value": "on"}],
+                                                    value=[],
+                                                    style={"fontSize": "12px"},
+                                                    inputStyle={"marginRight": "6px"},
+                                                ),
+                                            ],
                                         ),
                                     ],
                                 ),
@@ -417,7 +435,8 @@ layout = html.Div(
                                         id="vis-pcp",
                                         config=PLOT_CONFIG,
                                         style={"height": "100%", "width": "100%"},
-                                    )
+                                    ),
+                                    style_extra={"overflow": "visible"},
                                 ),
                             ],
                         ),

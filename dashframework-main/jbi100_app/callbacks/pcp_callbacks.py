@@ -5,7 +5,7 @@ import pandas as pd
 from dash import Input, Output, State, callback, no_update, ctx
 
 from jbi100_app.data.data_loader import DATA_INFO
-from jbi100_app.plots.common import coerce_numeric, pick_pcp_dims
+from jbi100_app.plots.common import coerce_numeric, pick_pcp_dims, pretty_metric
 from jbi100_app.plots.pcp import build_pcp_figure
 from jbi100_app.state.filters import (
     parse_parcoords_constraintrange_patch,
@@ -23,32 +23,21 @@ def _safe_df() -> pd.DataFrame:
     return DATA_INFO.copy()
 
 
-def _pcp_normalized_work(
-    df: pd.DataFrame,
-    dims_override: list[str] | None,
-    max_dims: int = 8,
-) -> tuple[pd.DataFrame, list[str]]:
-    """
-    Recreate the normalized (0..1) values used by go.Parcoords so that
-    constraintrange comparisons match what the user brushed.
-
-    IMPORTANT: dims must match the PCP dims order used in build_pcp_figure().
-    """
-    if df is None or df.empty:
-        return pd.DataFrame(columns=["Country"]), []
-
-    # ✅ Use the same dim selection logic as the PCP plot
+def _choose_dims(df: pd.DataFrame, dims_override: list[str] | None, max_dims: int = 8) -> list[str]:
     if isinstance(dims_override, list) and len(dims_override) >= 2:
-        dims = [str(d) for d in dims_override if d in df.columns][:max_dims]
-    else:
-        dims = pick_pcp_dims(df, ui_category=None, max_dims=max_dims)
+        return [str(d) for d in dims_override if d in df.columns][:max_dims]
+    return pick_pcp_dims(df, ui_category=None, max_dims=max_dims)
 
-    if len(dims) < 2:
-        return pd.DataFrame(columns=["Country"]), []
+
+def _pcp_normalized_work(df: pd.DataFrame, dims: list[str]) -> pd.DataFrame:
+    """
+    Build normalized (0..1) columns for EXACT dims order (must match figure order).
+    """
+    if df is None or df.empty or len(dims) < 2:
+        return pd.DataFrame(columns=["Country"])
 
     work = df[["Country"] + dims].copy()
 
-    # normalize each dim to 0..1 (same as PCP plot)
     for c in dims:
         work[c] = coerce_numeric(work[c])
         med = work[c].median(skipna=True)
@@ -60,7 +49,7 @@ def _pcp_normalized_work(
         else:
             work[c] = 0.0
 
-    return work, dims
+    return work
 
 
 def _brush_countries_from_store(brush_store) -> list[str]:
@@ -79,7 +68,7 @@ def _brush_countries_from_store(brush_store) -> list[str]:
 def _normalize_prev_constraints(prev_store, dims: list[str]) -> dict[str, list[list[float]]]:
     """
     Support BOTH:
-      - new format: {"gdp_per_capita_usd": [[lo,hi], ...], ...}
+      - new format: {"metric": [[lo,hi], ...], ...}
       - old format: {"2": [[lo,hi], ...], ...} (dimension indices)
     Convert everything to: { "<dim_name>": [[lo,hi], ...] }
     """
@@ -97,7 +86,6 @@ def _normalize_prev_constraints(prev_store, dims: list[str]) -> dict[str, list[l
 
         key = str(k)
 
-        # old format: numeric index -> map to dim name
         if key.isdigit():
             try:
                 idx = int(key)
@@ -107,15 +95,57 @@ def _normalize_prev_constraints(prev_store, dims: list[str]) -> dict[str, list[l
                 out[dims[idx]] = v
             continue
 
-        # new format: already dim name
         out[key] = v
 
     return out
 
 
+def _dims_from_current_figure(fig_obj, candidates: list[str]) -> list[str] | None:
+    """
+    Extract the *currently displayed* axis order from the existing PCP figure.
+
+    We read fig['data'][0]['dimensions'][i]['label'] and map labels back to
+    metric names using pretty_metric(metric).
+
+    Returns None if extraction fails.
+    """
+    if not isinstance(fig_obj, dict):
+        return None
+
+    data = fig_obj.get("data")
+    if not isinstance(data, list) or not data:
+        return None
+
+    trace0 = data[0]
+    if not isinstance(trace0, dict):
+        return None
+
+    dims_payload = trace0.get("dimensions")
+    if not isinstance(dims_payload, list) or len(dims_payload) < 2:
+        return None
+
+    # map pretty label -> metric name
+    label_to_metric = {pretty_metric(m): m for m in candidates if isinstance(m, str) and m}
+
+    new_order: list[str] = []
+    for d in dims_payload:
+        if not isinstance(d, dict):
+            continue
+        lab = d.get("label")
+        if not isinstance(lab, str):
+            continue
+        m = label_to_metric.get(lab)
+        if m and m not in new_order:
+            new_order.append(m)
+
+    if len(new_order) >= 2:
+        return new_order
+
+    return None
+
+
 # ---------------------------------------------------------------------
 # PCP figure (visual)
-# NOTE: do NOT listen to vis-pcp.restyleData here (avoid redraw loops)
 # ---------------------------------------------------------------------
 @callback(
     Output("vis-pcp", "figure"),
@@ -125,8 +155,11 @@ def _normalize_prev_constraints(prev_store, dims: list[str]) -> dict[str, list[l
     Input("vis-geo-scale", "value"),
     Input("vis-geo-scope-dd", "value"),
     Input("vis-attr-pool", "value"),
-    Input("vis-clear-all", "n_clicks"),  # bump uirevision to visually clear brush
+    Input("pcp-dims-store", "data"),
+    Input("vis-clear-all", "n_clicks"),
     Input("vis-pcp-selected-only", "value"),
+    Input("vis-pcp-color-first-axis", "value"),
+    State("vis-pcp", "figure"),  # ✅ NEW: read current axis order from what user sees
     prevent_initial_call=False,
 )
 def update_pcp(
@@ -135,19 +168,42 @@ def update_pcp(
     geo_scale,
     geo_scope,
     dims_override,
+    dims_store,
     clear_clicks,
     selected_only_toggle,
+    color_first_axis_toggle,
+    current_pcp_fig,
 ):
     df = _safe_df()
     if df.empty:
         return no_update, ""
 
-    show_selected_only = "on" in (selected_only_toggle or [])
-
     selection_store = normalize_selection_store(selection_store)
     brush_countries = _brush_countries_from_store(brush_store)
 
-    # keep persistence normally, but clearing filter must reset persisted brush constraints
+    show_selected_only = "on" in (selected_only_toggle or [])
+    color_by_first_axis = "on" in (color_first_axis_toggle or [])
+
+    # 1) Build a candidate set of dims (sidebar-driven)
+    base_dims = _choose_dims(df, dims_override, max_dims=8)
+
+    # 2) Preferred: dims_store (if it exists and valid)
+    dims_to_use: list[str] = []
+    if isinstance(dims_store, list):
+        dims_to_use = [str(x) for x in dims_store if x and str(x) in df.columns][:8]
+
+    # 3) If store is missing/invalid, extract order from the CURRENT FIGURE
+    #    (this is the key to preventing "toggle resets order")
+    if len(dims_to_use) < 2:
+        extracted = _dims_from_current_figure(current_pcp_fig, candidates=base_dims)
+        if extracted and len(extracted) >= 2:
+            dims_to_use = extracted
+
+    # 4) Fall back to sidebar/default order
+    if len(dims_to_use) < 2:
+        dims_to_use = base_dims
+
+    # keep persistence normally; clear button still bumps uirevision for clearing brush
     uirev = f"pcp:{int(clear_clicks or 0)}"
 
     fig = build_pcp_figure(
@@ -159,8 +215,9 @@ def update_pcp(
         max_dims=8,
         brush_countries=brush_countries,
         uirevision=uirev,
-        dims_override=dims_override,
+        dims_override=dims_to_use,          # ✅ always rebuild in current visual order
         show_selected_only=show_selected_only,
+        color_by_first_axis=color_by_first_axis,
     )
 
     pop_text = f"Population: {geo_scale or 'global'}"
@@ -180,36 +237,40 @@ def update_pcp(
     Input("vis-pcp", "restyleData"),
     Input("vis-clear-all", "n_clicks"),
     State("vis-attr-pool", "value"),
+    State("pcp-dims-store", "data"),
     State("pcp-brush-store", "data"),
     prevent_initial_call=True,
 )
-def pcp_store_from_brush_or_clear(restyle_data, clear_clicks, dims_override, prev_store):
-    # Clear button wins
+def pcp_store_from_brush_or_clear(restyle_data, clear_clicks, dims_override, dims_store, prev_store):
     if ctx.triggered_id == "vis-clear-all":
         return None
 
-    # Brush update
     df = _safe_df()
-    work_norm, dims = _pcp_normalized_work(df, dims_override, max_dims=8)
-    if work_norm.empty or len(dims) < 2:
+    if df.empty:
         return None
 
-    # ✅ Normalize previous constraints to dim-name keyed (supports legacy index-keyed stores)
+    dims = []
+    if isinstance(dims_store, list):
+        dims = [str(x) for x in dims_store if x and str(x) in df.columns][:8]
+    if len(dims) < 2:
+        dims = _choose_dims(df, dims_override, max_dims=8)
+    if len(dims) < 2:
+        return None
+
+    work_norm = _pcp_normalized_work(df, dims=dims)
+    if work_norm.empty:
+        return None
+
     prev_constraints = _normalize_prev_constraints(prev_store, dims=dims)
 
     patch, saw_constraint_key = parse_parcoords_constraintrange_patch(restyle_data)
-
-    # not a constraint update -> ignore
     if not saw_constraint_key:
         return no_update
 
-    # -----------------------------------------------------------------
-    # ✅ Convert patch indices -> DIMENSION NAMES (so axis reordering is safe)
-    # -----------------------------------------------------------------
     constraints = dict(prev_constraints)
 
+    # patch keys are indices; convert -> dim names using current displayed order
     for dim_idx_str, ranges in patch.items():
-        # parse index
         try:
             dim_idx = int(str(dim_idx_str))
         except Exception:
@@ -220,20 +281,18 @@ def pcp_store_from_brush_or_clear(restyle_data, clear_clicks, dims_override, pre
 
         dim_name = dims[dim_idx]
 
-        # cleared constraint for that dimension
         if not ranges:
             constraints.pop(dim_name, None)
         else:
             constraints[dim_name] = ranges
 
-    # no constraints -> clear filter
     if not constraints:
         return None
 
     countries = countries_from_parcoords_constraints(
         work_norm,
         dims=dims,
-        constraints=constraints,  # now keyed by dim name
+        constraints=constraints,
     )
 
     return {"countries": countries, "constraints": constraints}
