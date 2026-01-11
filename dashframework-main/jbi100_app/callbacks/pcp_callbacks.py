@@ -1,4 +1,3 @@
-# jbi100_app/callbacks/pcp_callbacks.py
 from __future__ import annotations
 
 import numpy as np
@@ -64,7 +63,6 @@ def _pcp_normalized_work(
     return work, dims
 
 
-
 def _brush_countries_from_store(brush_store) -> list[str]:
     if brush_store is None:
         return []
@@ -76,6 +74,43 @@ def _brush_countries_from_store(brush_store) -> list[str]:
     if isinstance(brush_store, list):
         return [str(x) for x in brush_store if x]
     return []
+
+
+def _normalize_prev_constraints(prev_store, dims: list[str]) -> dict[str, list[list[float]]]:
+    """
+    Support BOTH:
+      - new format: {"gdp_per_capita_usd": [[lo,hi], ...], ...}
+      - old format: {"2": [[lo,hi], ...], ...} (dimension indices)
+    Convert everything to: { "<dim_name>": [[lo,hi], ...] }
+    """
+    out: dict[str, list[list[float]]] = {}
+    if not isinstance(prev_store, dict):
+        return out
+
+    raw = prev_store.get("constraints")
+    if not isinstance(raw, dict):
+        return out
+
+    for k, v in raw.items():
+        if not isinstance(v, list):
+            continue
+
+        key = str(k)
+
+        # old format: numeric index -> map to dim name
+        if key.isdigit():
+            try:
+                idx = int(key)
+            except Exception:
+                continue
+            if 0 <= idx < len(dims):
+                out[dims[idx]] = v
+            continue
+
+        # new format: already dim name
+        out[key] = v
+
+    return out
 
 
 # ---------------------------------------------------------------------
@@ -138,7 +173,7 @@ def update_pcp(
 # ---------------------------------------------------------------------
 # PCP brush + Clear button -> pcp-brush-store (SINGLE OWNER)
 # Store schema:
-#   {"countries": [...], "constraints": { "<dim_idx>": [[lo,hi], ...], ... } }
+#   {"countries": [...], "constraints": { "<dim_name>": [[lo,hi], ...], ... } }
 # ---------------------------------------------------------------------
 @callback(
     Output("pcp-brush-store", "data"),
@@ -159,14 +194,8 @@ def pcp_store_from_brush_or_clear(restyle_data, clear_clicks, dims_override, pre
     if work_norm.empty or len(dims) < 2:
         return None
 
-    # previous accumulated constraints
-    prev_constraints: dict[str, list[list[float]]] = {}
-    if isinstance(prev_store, dict) and isinstance(prev_store.get("constraints"), dict):
-        prev_constraints = {
-            str(k): v
-            for k, v in prev_store.get("constraints", {}).items()
-            if isinstance(k, (str, int))
-        }
+    # ✅ Normalize previous constraints to dim-name keyed (supports legacy index-keyed stores)
+    prev_constraints = _normalize_prev_constraints(prev_store, dims=dims)
 
     patch, saw_constraint_key = parse_parcoords_constraintrange_patch(restyle_data)
 
@@ -174,13 +203,28 @@ def pcp_store_from_brush_or_clear(restyle_data, clear_clicks, dims_override, pre
     if not saw_constraint_key:
         return no_update
 
-    # merge patch into accumulated constraints
+    # -----------------------------------------------------------------
+    # ✅ Convert patch indices -> DIMENSION NAMES (so axis reordering is safe)
+    # -----------------------------------------------------------------
     constraints = dict(prev_constraints)
+
     for dim_idx_str, ranges in patch.items():
+        # parse index
+        try:
+            dim_idx = int(str(dim_idx_str))
+        except Exception:
+            continue
+
+        if not (0 <= dim_idx < len(dims)):
+            continue
+
+        dim_name = dims[dim_idx]
+
+        # cleared constraint for that dimension
         if not ranges:
-            constraints.pop(dim_idx_str, None)
+            constraints.pop(dim_name, None)
         else:
-            constraints[dim_idx_str] = ranges
+            constraints[dim_name] = ranges
 
     # no constraints -> clear filter
     if not constraints:
@@ -189,7 +233,7 @@ def pcp_store_from_brush_or_clear(restyle_data, clear_clicks, dims_override, pre
     countries = countries_from_parcoords_constraints(
         work_norm,
         dims=dims,
-        constraints=constraints,
+        constraints=constraints,  # now keyed by dim name
     )
 
     return {"countries": countries, "constraints": constraints}

@@ -267,8 +267,8 @@ layout = html.Div(
                                         ),
                                         _plot_wrap(
                                             dcc.Graph(
-                                                id="vis-map",
-                                                config=PLOT_CONFIG,
+                                                id="vis-pcp",
+                                                config={**PLOT_CONFIG, "editable": True},
                                                 style={"height": "100%", "width": "100%"},
                                             )
                                         ),

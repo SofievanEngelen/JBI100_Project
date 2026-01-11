@@ -1,4 +1,3 @@
-# jbi100_app/state/filters.py
 from __future__ import annotations
 
 import re
@@ -17,8 +16,9 @@ def parse_parcoords_constraintrange_patch(restyle_data: Any) -> tuple[dict[str, 
     Returns:
       (patch, saw_constraint_key)
 
-    patch schema (JSON friendly):
+    patch schema (JSON friendly), keyed by dimension INDEX as string:
       { "<dim_idx>": [[lo, hi], [lo2, hi2], ...] }
+
     If a constraint was cleared for a dimension, patch will contain:
       { "<dim_idx>": [] }
 
@@ -80,9 +80,6 @@ def parse_parcoords_constraintrange_patch(restyle_data: Any) -> tuple[dict[str, 
                         lo_f, hi_f = hi_f, lo_f
                     parsed.append([lo_f, hi_f])
 
-        # If parsing failed, treat it as no-op for that dim (do not clear)
-        # But since this was a constraintrange key, we still record it as empty only
-        # if it's truly empty in the payload. Otherwise keep parsed (may be empty).
         patch[dim_idx] = parsed
 
     return patch, saw
@@ -96,9 +93,12 @@ def countries_from_parcoords_constraints(
     """
     Apply accumulated parcoords constraints across ALL constrained dimensions.
 
+    UPDATED:
+    - constraints are keyed by DIMENSION NAME (column name), not index.
+      { "gdp_per_capita_usd": [[0.2,0.4]], "unemployment_pct": [[0.1,0.3]] }
+
     - work_df must contain "Country" and the dimension columns in the PCP's order.
     - values should be normalized to 0..1 (because constraintrange is in displayed scale).
-    - constraints keys are dimension indices as strings (JSON friendly).
     """
     if work_df is None or work_df.empty or "Country" not in work_df.columns:
         return []
@@ -112,20 +112,15 @@ def countries_from_parcoords_constraints(
     mask = pd.Series(True, index=work_df.index)
     any_active = False
 
-    for dim_idx_str, ranges in constraints.items():
+    for col, ranges in constraints.items():
         if not ranges:
             continue
+        col = str(col)
 
-        try:
-            dim_idx = int(dim_idx_str)
-        except Exception:
-            continue
-
-        if dim_idx < 0 or dim_idx >= len(dims):
+        if col not in work_df.columns:
             continue
 
         any_active = True
-        col = dims[dim_idx]
         col_vals = work_df[col]
 
         # OR within dimension across disjoint ranges
