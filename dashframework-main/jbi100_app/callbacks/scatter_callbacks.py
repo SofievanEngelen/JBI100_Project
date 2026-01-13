@@ -1,10 +1,9 @@
-# jbi100_app/callbacks/scatter_callbacks.py
 from __future__ import annotations
 
 from dash import Input, Output, State, callback, no_update
 import pandas as pd
 
-from jbi100_app.data.data_loader import DATA_INFO, normalize_country_key
+from jbi100_app.data.data_loader import DATA_INFO, normalize_country_key, CONTINENTS, REGIONS
 from jbi100_app.data.geo_utils import geo_mask
 from jbi100_app.plots.common import all_numeric_metrics, pretty_metric
 from jbi100_app.plots.scatter import build_scatter_figure
@@ -65,6 +64,36 @@ def extract_scatter_brush_countries(selected_data, df: pd.DataFrame) -> list[str
     return df.iloc[idxs]["Country"].astype(str).tolist()
 
 
+def _scatter_scope_mask(df: pd.DataFrame, geo_scale: str, geo_scope) -> pd.Series:
+    """
+    Build the 'in scope' mask consistent with the map:
+      - global: all True
+      - continent: only countries in selected continent
+      - region: only countries in selected region
+    """
+    if df is None or df.empty:
+        return pd.Series(dtype=bool)
+
+    geo_scale = (geo_scale or "global").lower().strip()
+
+    # start from "base mask" (keeps compatibility with your geo_utils)
+    base_mask = geo_mask(df, geo_scale or "global", None)
+
+    scope_mask = pd.Series(True, index=df.index)
+
+    if geo_scale == "continent" and geo_scope in CONTINENTS:
+        allowed = set(CONTINENTS[geo_scope])
+        if "_CountryKey" in df.columns:
+            scope_mask = df["_CountryKey"].isin(allowed)
+
+    elif geo_scale == "region" and geo_scope in REGIONS:
+        allowed = set(REGIONS[geo_scope])
+        if "_CountryKey" in df.columns:
+            scope_mask = df["_CountryKey"].isin(allowed)
+
+    return base_mask & scope_mask
+
+
 # ---------------------------------------------------------------------
 # Attribute dropdowns (all numeric metrics; independent of sidebar)
 # ---------------------------------------------------------------------
@@ -94,24 +123,22 @@ def refresh_scatter_attr_options(_metric, cur_x, cur_y):
 
 
 # ---------------------------------------------------------------------
-# Scatter plot rendering (visually reflects PCP filter)
+# Scatter plot rendering (reflects BOTH continent/region scope AND PCP filter)
 # ---------------------------------------------------------------------
 @callback(
     Output("vis-scatter-plot", "figure"),
     Input("vis-scatter-x", "value"),
     Input("vis-scatter-y", "value"),
     Input("vis-geo-scale", "value"),
+    Input("vis-geo-scope-dd", "value"),   # ✅ NEW
     Input("vis-selection-store", "data"),
     Input("pcp-brush-store", "data"),
 )
-def update_scatter(x_metric, y_metric, geo_scale, selection_store, brush_data):
+def update_scatter(x_metric, y_metric, geo_scale, geo_scope, selection_store, brush_data):
     df = _safe_df()
 
-    focus = None
-    if isinstance(selection_store, list) and selection_store:
-        focus = selection_store[0].get("country_name")
-
-    in_mask = geo_mask(df, geo_scale or "global", focus) if not df.empty else None
+    # ✅ match map behaviour: in-mask is based on geo_scale + geo_scope
+    in_mask = _scatter_scope_mask(df, geo_scale or "global", geo_scope)
 
     # ✅ Robust extraction (keys -> df Country names)
     brush_countries = _brush_countries_for_df(brush_data, df)

@@ -1,4 +1,3 @@
-# jbi100_app/callbacks/selection_callbacks.py
 from __future__ import annotations
 
 import numpy as np
@@ -9,8 +8,13 @@ from jbi100_app.state.selection_store import (
     merge_selection_store,
     names_from_store,
     normalize_selection_store,
-    clamp_selection,
 )
+
+# ============================================================
+# Limits
+# ============================================================
+MAX_COUNTRIES = 6
+MAX_ATTRS = 8
 
 
 def _safe_df():
@@ -23,7 +27,6 @@ def _safe_df():
         if c not in df.columns:
             df[c] = "Unknown"
     df["Country"] = df["Country"].astype(str)
-    # your existing UN filter behavior
     df["_UN_NAME"] = df["Country"].astype(str).str.strip().str.upper().str.replace(r"\s+", " ", regex=True)
     df = df[df["_UN_NAME"].isin(UN_COUNTRIES)].copy()
     return df
@@ -64,11 +67,16 @@ def _country_option_label(name: str, color: str | None):
     )
 
 
+# ============================================================
+# Country dropdown + selection store (keeps colours) + popup cap at 6
+# ============================================================
 @callback(
     Output("vis-country", "value"),
     Output("vis-country", "options"),
     Output("vis-warnings", "children"),
     Output("vis-selection-store", "data"),
+    Output("vis-country-limit-dialog", "message"),
+    Output("vis-country-limit-dialog", "displayed"),
     Input("vis-country", "value"),
     State("vis-selection-store", "data"),
     prevent_initial_call=False,
@@ -84,13 +92,25 @@ def init_or_update_country_dropdown(vis_country_value, cur_sel_store):
 
     cur_sel_store = normalize_selection_store(cur_sel_store)
 
-    new_names = clamp_selection(
-        vis_country_value if isinstance(vis_country_value, list) else ([vis_country_value] if vis_country_value else [])
-    )
-    merged, ok = merge_selection_store(cur_sel_store, new_names)
+    raw = vis_country_value if isinstance(vis_country_value, list) else ([vis_country_value] if vis_country_value else [])
+    raw = [str(x) for x in raw if x]
+
+    # keep only known countries
+    raw = [c for c in raw if c in countries_all]
+
+    show_popup = False
+    popup_msg = ""
+
+    if len(raw) > MAX_COUNTRIES:
+        raw = raw[:MAX_COUNTRIES]
+        show_popup = True
+        popup_msg = f"You can select at most {MAX_COUNTRIES} countries."
+
+    merged, ok = merge_selection_store(cur_sel_store, raw)
     if not ok:
         merged = cur_sel_store
 
+    # colour-aware dropdown labels
     color_map = {d["country_name"]: d["colour_rgb"] for d in merged}
     opts = [{"value": str(c), "label": _country_option_label(str(c), color_map.get(str(c)))} for c in countries_all]
 
@@ -98,7 +118,7 @@ def init_or_update_country_dropdown(vis_country_value, cur_sel_store):
     if df.empty:
         warn = "Dataset is empty after UN filter. Check mun_dataset.csv loading and Country names."
 
-    return names_from_store(merged), opts, warn, merged
+    return names_from_store(merged), opts, warn, merged, popup_msg, show_popup
 
 
 # ✅ Clear button: clears ONLY the PCP filter (brush), keeps selected countries
@@ -112,8 +132,6 @@ def init_or_update_country_dropdown(vis_country_value, cur_sel_store):
 def clear_filter_only(n):
     if not n:
         return no_update, no_update, no_update
-
-    # Keep selection; clear only the brush/filter
     return no_update, no_update, None
 
 
@@ -132,11 +150,41 @@ def map_click_to_selection(clickData, current_sel_store):
     if not country:
         return no_update, no_update
 
+    # toggle-off
     if country in selected_names:
         new_names = [c for c in selected_names if c != country]
         merged, ok = merge_selection_store(current_sel_store, new_names)
         return (names_from_store(merged), merged) if ok else (selected_names, current_sel_store)
 
+    # toggle-on (add to front)
     new_names = [country] + selected_names
+    if len(new_names) > MAX_COUNTRIES:
+        new_names = new_names[:MAX_COUNTRIES]
+        # (popup handled only by dropdown callback; map-click stays silent)
+
     merged, ok = merge_selection_store(current_sel_store, new_names)
     return (names_from_store(merged), merged) if ok else (no_update, no_update)
+
+
+# ============================================================
+# Attribute selection cap at 8 + popup
+# ============================================================
+@callback(
+    Output("vis-attr-pool", "value"),
+    Output("vis-attr-limit-dialog", "message"),
+    Output("vis-attr-limit-dialog", "displayed"),
+    Input("vis-attr-pool", "value"),
+    prevent_initial_call=True,
+)
+def cap_attr_pool_to_8(selected):
+    if not isinstance(selected, list):
+        return no_update, no_update, no_update
+
+    selected = [str(x) for x in selected if x]
+
+    if len(selected) <= MAX_ATTRS:
+        return no_update, "", False
+
+    capped = selected[:MAX_ATTRS]
+    msg = f"You can select at most {MAX_ATTRS} attributes."
+    return capped, msg, True

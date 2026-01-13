@@ -1,12 +1,11 @@
-# jbi100_app/callbacks/distribution_callbacks.py
 from __future__ import annotations
 
 from dash import Input, Output, State, callback, no_update
 import pandas as pd
 
-from jbi100_app.data.data_loader import DATA_INFO
+from jbi100_app.data.data_loader import DATA_INFO, CONTINENTS, REGIONS
 from jbi100_app.data.geo_utils import geo_mask
-from jbi100_app.plots.common import metric_cols_for_category, all_numeric_metrics, pretty_metric
+from jbi100_app.plots.common import all_numeric_metrics, pretty_metric
 from jbi100_app.plots.histogram import build_histogram_figure
 from jbi100_app.plots.violin import build_violin_figure
 from jbi100_app.state.selection_store import normalize_selection_store, names_from_store
@@ -17,6 +16,36 @@ def _safe_df() -> pd.DataFrame:
     if DATA_INFO is None or getattr(DATA_INFO, "empty", True):
         return pd.DataFrame(columns=["Country", "Region", "Continent"])
     return DATA_INFO.copy()
+
+
+def _scope_mask(df: pd.DataFrame, geo_scale: str, geo_scope) -> pd.Series:
+    """
+    Match map behaviour:
+      - global: all True
+      - continent: only selected continent
+      - region: only selected region
+    """
+    if df is None or df.empty:
+        return pd.Series(dtype=bool)
+
+    geo_scale = (geo_scale or "global").lower().strip()
+
+    # base mask (kept for compatibility)
+    base_mask = geo_mask(df, geo_scale or "global", None)
+
+    scope_mask = pd.Series(True, index=df.index)
+
+    if geo_scale == "continent" and geo_scope in CONTINENTS:
+        allowed = set(CONTINENTS[geo_scope])
+        if "_CountryKey" in df.columns:
+            scope_mask = df["_CountryKey"].isin(allowed)
+
+    elif geo_scale == "region" and geo_scope in REGIONS:
+        allowed = set(REGIONS[geo_scope])
+        if "_CountryKey" in df.columns:
+            scope_mask = df["_CountryKey"].isin(allowed)
+
+    return base_mask & scope_mask
 
 
 @callback(
@@ -50,10 +79,11 @@ def refresh_single_attr_options(_geo_scale, cur_hist, cur_violin):
     Input("vis-hist-attr", "value"),
     Input("vis-hist-bins", "value"),
     Input("vis-geo-scale", "value"),
+    Input("vis-geo-scope-dd", "value"),  # ✅ NEW
     Input("vis-selection-store", "data"),
     Input("pcp-brush-store", "data"),
 )
-def update_histogram(metric, bins, geo_scale, selection_store, brush_data):
+def update_histogram(metric, bins, geo_scale, geo_scope, selection_store, brush_data):
     """
     IMPORTANT: The histogram should NOT be filtered by the global brush,
     otherwise clicking a bin makes the histogram "zoom" (bins/range recompute).
@@ -62,14 +92,13 @@ def update_histogram(metric, bins, geo_scale, selection_store, brush_data):
     df = _safe_df()
 
     selection_store = normalize_selection_store(selection_store)
-    selected_names = names_from_store(selection_store)
-    focus = selected_names[0] if selected_names else None
 
     brush = []
     if isinstance(brush_data, dict) and brush_data.get("countries"):
         brush = [str(x) for x in brush_data.get("countries", []) if x]
 
-    in_mask = geo_mask(df, geo_scale or "global", focus) if not df.empty else None
+    # ✅ in-scope mask now reflects the actual continent/region dropdown selection
+    in_mask = _scope_mask(df, geo_scale or "global", geo_scope) if not df.empty else None
 
     fig = build_histogram_figure(
         df=df,
@@ -78,10 +107,10 @@ def update_histogram(metric, bins, geo_scale, selection_store, brush_data):
         geo_scale=geo_scale or "global",
         in_mask=in_mask,
         selection_store=selection_store,
-        brush_countries=brush,  # ✅ overlay highlight, don't filter df
+        brush_countries=brush,  # overlay highlight, don't filter df
     )
 
-    scope_active = (geo_scale or "global") in ("continent", "region") and focus
+    scope_active = (geo_scale or "global") in ("continent", "region") and bool(geo_scope)
     filter_txt = f"Filter: {len(brush)} countries" if brush else "Filter: none"
     return fig, (("Continent/region active | " if scope_active else "") + filter_txt)
 
@@ -90,18 +119,17 @@ def update_histogram(metric, bins, geo_scale, selection_store, brush_data):
     Output("vis-violin-plot", "figure"),
     Input("vis-violin-attr", "value"),
     Input("vis-geo-scale", "value"),
+    Input("vis-geo-scope-dd", "value"),  # ✅ NEW (so violin scope matches)
     Input("vis-selection-store", "data"),
     Input("pcp-brush-store", "data"),
 )
-def update_violin(metric, geo_scale, selection_store, brush_data):
+def update_violin(metric, geo_scale, geo_scope, selection_store, brush_data):
     """
     Violin SHOULD reflect the global brush filter (unlike histogram base distribution).
     """
     df = _safe_df()
 
     selection_store = normalize_selection_store(selection_store)
-    selected_names = names_from_store(selection_store)
-    focus = selected_names[0] if selected_names else None
 
     brush = []
     if isinstance(brush_data, dict) and brush_data.get("countries"):
@@ -110,7 +138,8 @@ def update_violin(metric, geo_scale, selection_store, brush_data):
     # ✅ Apply global filter here
     df = apply_temp_region_filter(df, brush)
 
-    in_mask = geo_mask(df, geo_scale or "global", focus) if not df.empty else None
+    # ✅ Scope mask reflects continent/region selection
+    in_mask = _scope_mask(df, geo_scale or "global", geo_scope) if not df.empty else None
 
     return build_violin_figure(
         df=df,

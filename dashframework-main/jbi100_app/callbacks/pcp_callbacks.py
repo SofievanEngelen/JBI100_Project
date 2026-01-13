@@ -4,7 +4,8 @@ import numpy as np
 import pandas as pd
 from dash import Input, Output, State, callback, no_update, ctx
 
-from jbi100_app.data.data_loader import DATA_INFO
+from jbi100_app.data.data_loader import DATA_INFO, CONTINENTS, REGIONS
+from jbi100_app.data.geo_utils import geo_mask
 from jbi100_app.plots.common import coerce_numeric, pick_pcp_dims, pretty_metric
 from jbi100_app.plots.pcp import build_pcp_figure
 from jbi100_app.state.filters import (
@@ -14,9 +15,6 @@ from jbi100_app.state.filters import (
 from jbi100_app.state.selection_store import normalize_selection_store
 
 
-# ---------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------
 def _safe_df() -> pd.DataFrame:
     if DATA_INFO is None or getattr(DATA_INFO, "empty", True):
         return pd.DataFrame(columns=["Country"])
@@ -30,9 +28,6 @@ def _choose_dims(df: pd.DataFrame, dims_override: list[str] | None, max_dims: in
 
 
 def _pcp_normalized_work(df: pd.DataFrame, dims: list[str]) -> pd.DataFrame:
-    """
-    Build normalized (0..1) columns for EXACT dims order (must match figure order).
-    """
     if df is None or df.empty or len(dims) < 2:
         return pd.DataFrame(columns=["Country"])
 
@@ -66,12 +61,6 @@ def _brush_countries_from_store(brush_store) -> list[str]:
 
 
 def _normalize_prev_constraints(prev_store, dims: list[str]) -> dict[str, list[list[float]]]:
-    """
-    Support BOTH:
-      - new format: {"metric": [[lo,hi], ...], ...}
-      - old format: {"2": [[lo,hi], ...], ...} (dimension indices)
-    Convert everything to: { "<dim_name>": [[lo,hi], ...] }
-    """
     out: dict[str, list[list[float]]] = {}
     if not isinstance(prev_store, dict):
         return out
@@ -101,14 +90,6 @@ def _normalize_prev_constraints(prev_store, dims: list[str]) -> dict[str, list[l
 
 
 def _dims_from_current_figure(fig_obj, candidates: list[str]) -> list[str] | None:
-    """
-    Extract the *currently displayed* axis order from the existing PCP figure.
-
-    We read fig['data'][0]['dimensions'][i]['label'] and map labels back to
-    metric names using pretty_metric(metric).
-
-    Returns None if extraction fails.
-    """
     if not isinstance(fig_obj, dict):
         return None
 
@@ -124,7 +105,6 @@ def _dims_from_current_figure(fig_obj, candidates: list[str]) -> list[str] | Non
     if not isinstance(dims_payload, list) or len(dims_payload) < 2:
         return None
 
-    # map pretty label -> metric name
     label_to_metric = {pretty_metric(m): m for m in candidates if isinstance(m, str) and m}
 
     new_order: list[str] = []
@@ -144,22 +124,44 @@ def _dims_from_current_figure(fig_obj, candidates: list[str]) -> list[str] | Non
     return None
 
 
-# ---------------------------------------------------------------------
-# PCP figure (visual)
-# ---------------------------------------------------------------------
+def _scope_mask(df: pd.DataFrame, geo_scale: str, geo_scope) -> pd.Series:
+    """
+    Match map behaviour for continent/region.
+    """
+    if df is None or df.empty:
+        return pd.Series(dtype=bool)
+
+    geo_scale = (geo_scale or "global").lower().strip()
+
+    base_mask = geo_mask(df, geo_scale or "global", None)
+    scope_mask = pd.Series(True, index=df.index)
+
+    if geo_scale == "continent" and geo_scope in CONTINENTS:
+        allowed = set(CONTINENTS[geo_scope])
+        if "_CountryKey" in df.columns:
+            scope_mask = df["_CountryKey"].isin(allowed)
+
+    elif geo_scale == "region" and geo_scope in REGIONS:
+        allowed = set(REGIONS[geo_scope])
+        if "_CountryKey" in df.columns:
+            scope_mask = df["_CountryKey"].isin(allowed)
+
+    return base_mask & scope_mask
+
+
 @callback(
     Output("vis-pcp", "figure"),
     Output("vis-population-text", "children"),
     Input("vis-selection-store", "data"),
     Input("pcp-brush-store", "data"),
     Input("vis-geo-scale", "value"),
-    Input("vis-geo-scope-dd", "value"),
+    Input("vis-geo-scope-dd", "value"),   # ✅ NEW
     Input("vis-attr-pool", "value"),
     Input("pcp-dims-store", "data"),
     Input("vis-clear-all", "n_clicks"),
     Input("vis-pcp-selected-only", "value"),
     Input("vis-pcp-color-first-axis", "value"),
-    State("vis-pcp", "figure"),  # ✅ NEW: read current axis order from what user sees
+    State("vis-pcp", "figure"),
     prevent_initial_call=False,
 )
 def update_pcp(
@@ -184,38 +186,54 @@ def update_pcp(
     show_selected_only = "on" in (selected_only_toggle or [])
     color_by_first_axis = "on" in (color_first_axis_toggle or [])
 
-    # 1) Build a candidate set of dims (sidebar-driven)
+    # 1) Build base dims from sidebar (this is the source of truth for "which attrs exist")
     base_dims = _choose_dims(df, dims_override, max_dims=8)
 
-    # 2) Preferred: dims_store (if it exists and valid)
+    # helper: preserve order of `preferred` but only for items in `base`,
+    # then append any new items from `base` not already present.
+    def _merge_order(preferred: list[str], base: list[str], max_dims: int = 8) -> list[str]:
+        base_set = set(base)
+        out = [d for d in preferred if d in base_set]
+        out_set = set(out)
+        out.extend([d for d in base if d not in out_set])
+        return out[:max_dims]  # ✅ cap to 8
+
     dims_to_use: list[str] = []
-    if isinstance(dims_store, list):
-        dims_to_use = [str(x) for x in dims_store if x and str(x) in df.columns][:8]
 
-    # 3) If store is missing/invalid, extract order from the CURRENT FIGURE
-    #    (this is the key to preventing "toggle resets order")
+    # 2) If we have a stored order, merge it with base (keeps drag order but allows new attrs)
+    if isinstance(dims_store, list) and base_dims:
+        preferred = [str(x) for x in dims_store if x and str(x) in df.columns]
+        dims_to_use = _merge_order(preferred, base_dims, max_dims=8)
+
+    # 3) If no store, we *may* extract from current figure — BUT:
+    #    if the trigger is vis-attr-pool, ALWAYS use base_dims (so it can grow beyond 2)
     if len(dims_to_use) < 2:
-        extracted = _dims_from_current_figure(current_pcp_fig, candidates=base_dims)
-        if extracted and len(extracted) >= 2:
-            dims_to_use = extracted
+        if ctx.triggered_id == "vis-attr-pool":
+            dims_to_use = base_dims
+        else:
+            extracted = _dims_from_current_figure(current_pcp_fig, candidates=base_dims)
+            if extracted and len(extracted) >= 2:
+                dims_to_use = _merge_order(extracted, base_dims, max_dims=8)
 
-    # 4) Fall back to sidebar/default order
+    # 4) Final fallback
     if len(dims_to_use) < 2:
         dims_to_use = base_dims
 
-    # keep persistence normally; clear button still bumps uirevision for clearing brush
+    # ✅ continent/region in-scope mask
+    in_mask = _scope_mask(df, geo_scale or "global", geo_scope)
+
     uirev = f"pcp:{int(clear_clicks or 0)}"
 
     fig = build_pcp_figure(
         df=df,
         ui_category=None,
         geo_scale=geo_scale or "global",
-        in_mask=None,
+        in_mask=in_mask,                 # ✅ NEW (now used)
         selection_store=selection_store,
         max_dims=8,
         brush_countries=brush_countries,
         uirevision=uirev,
-        dims_override=dims_to_use,          # ✅ always rebuild in current visual order
+        dims_override=dims_to_use,
         show_selected_only=show_selected_only,
         color_by_first_axis=color_by_first_axis,
     )
@@ -227,11 +245,6 @@ def update_pcp(
     return fig, pop_text
 
 
-# ---------------------------------------------------------------------
-# PCP brush + Clear button -> pcp-brush-store (SINGLE OWNER)
-# Store schema:
-#   {"countries": [...], "constraints": { "<dim_name>": [[lo,hi], ...], ... } }
-# ---------------------------------------------------------------------
 @callback(
     Output("pcp-brush-store", "data"),
     Input("vis-pcp", "restyleData"),
@@ -269,7 +282,6 @@ def pcp_store_from_brush_or_clear(restyle_data, clear_clicks, dims_override, dim
 
     constraints = dict(prev_constraints)
 
-    # patch keys are indices; convert -> dim names using current displayed order
     for dim_idx_str, ranges in patch.items():
         try:
             dim_idx = int(str(dim_idx_str))

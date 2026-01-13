@@ -1,15 +1,12 @@
-# jbi100_app/plots/scatter.py
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-# from jbi100_app.data.constants import IN_SCOPE_POINT, OUT_SCOPE_POINT
 from jbi100_app.plots.common import coerce_numeric, pretty_metric
 from jbi100_app.state.selection_store import SelectedCountry
 from jbi100_app.data.constants import BASE_GREY, FADED_GREY
-
 
 
 def build_scatter_figure(
@@ -31,7 +28,7 @@ def build_scatter_figure(
         return fig
 
     # ------------------------------------------------------------
-    # Base scope colouring (DARKER than before)
+    # Scope mask (continent/region): fade OUT-OF-SCOPE like filter
     # ------------------------------------------------------------
     in_mask_arr = (
         in_mask.to_numpy(dtype=bool)
@@ -39,21 +36,21 @@ def build_scatter_figure(
         else np.ones(len(df), dtype=bool)
     )
 
-    # # Darker base colors for better contrast
-    # BASE_IN_SCOPE = "rgba(90,90,90,0.95)"
-    # BASE_OUT_SCOPE = "rgba(130,130,130,0.85)"
-    #
-    base_colours = BASE_GREY
+    # start with geo-scope fade
+    base_colours = np.where(in_mask_arr, BASE_GREY, FADED_GREY)
+
     # ------------------------------------------------------------
-    # PCP brush overlay (fade NON-brushed points)
+    # PCP brush overlay (fade NON-brushed points, like filter)
+    # - if brush exists, keep brushed points at their current base colour
+    #   and fade the rest.
     # ------------------------------------------------------------
     brush_set = set(str(x) for x in (brush_countries or []) if x)
     if brush_set:
         brush_mask = df["Country"].astype(str).isin(brush_set).to_numpy(dtype=bool)
-        fade_colours = FADED_GREY
 
-        # Keep brushed points dark, fade the rest
-        base_colours = np.where(brush_mask, base_colours, fade_colours)
+        # combine: "active" = in-scope AND brushed
+        active = brush_mask
+        base_colours = np.where(active, base_colours, FADED_GREY)
 
     x = coerce_numeric(df[x_metric])
     y = coerce_numeric(df[y_metric])
