@@ -14,7 +14,7 @@ UI_CATEGORIES = {
         "gdp_growth_rate_pct",
         "government_debt_pct_gdp_pct",
     ],
-    "energy_env": [
+    "energy_environment": [
         "co2_total_Mt",
         "co2_intensity_tonnes_per_usd",
         "co2_per_capita_tonnes",
@@ -30,7 +30,7 @@ UI_CATEGORIES = {
         "median_age_years",
         "total_fertility_rate",
     ],
-    "comm_infra": [
+    "communication_infrastructure": [
         "internet_users_per_100_population",
         "digital_access_index",
     ],
@@ -38,10 +38,10 @@ UI_CATEGORIES = {
 
 UI_CATEGORY_LABELS = [
     ("economy", "Economy"),
-    ("energy_env", "Energy & environment"),
+    ("energy_environment", "Energy & environment"),
     ("population_society", "Population & society"),
     ("geography_politics", "Geography & politics"),
-    ("comm_infra", "Communication & infrastructure"),
+    ("communication_infrastructure", "Communication & infrastructure"),
 ]
 
 # Final version does NOT use multi-dataset loading as core logic.
