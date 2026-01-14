@@ -130,17 +130,15 @@ def refresh_scatter_attr_options(_metric, cur_x, cur_y):
     Input("vis-scatter-x", "value"),
     Input("vis-scatter-y", "value"),
     Input("vis-geo-scale", "value"),
-    Input("vis-geo-scope-dd", "value"),   # ✅ NEW
+    Input("vis-geo-scope-dd", "value"),
     Input("vis-selection-store", "data"),
     Input("pcp-brush-store", "data"),
 )
 def update_scatter(x_metric, y_metric, geo_scale, geo_scope, selection_store, brush_data):
     df = _safe_df()
 
-    # ✅ match map behaviour: in-mask is based on geo_scale + geo_scope
     in_mask = _scatter_scope_mask(df, geo_scale or "global", geo_scope)
 
-    # ✅ Robust extraction (keys -> df Country names)
     brush_countries = _brush_countries_for_df(brush_data, df)
 
     return build_scatter_figure(

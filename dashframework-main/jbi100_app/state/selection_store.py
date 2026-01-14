@@ -3,30 +3,7 @@ from __future__ import annotations
 import random
 from typing import TypedDict
 
-from jbi100_app.data.constants import MAX_SELECTED_COUNTRIES
-
-
-# ------------------------------------------------------------------
-# Colour palettes
-# ------------------------------------------------------------------
-SELECTION_COLOR_POOL = [
-    "rgb(213, 94, 0)",     # burnt orange
-    "rgb(174, 0, 255)",    # purple
-    "rgb(204, 121, 167)",  # rose
-    "rgb(0, 158, 115)",    # teal-green
-    "rgb(240, 228, 66)",   # yellow
-    "rgb(180, 35, 24)",    # deep red
-]
-
-SELECTION_COLOR_POOL_LIGHT = [
-    "rgb(241, 193, 163)",  # light burnt orange
-    "rgb(220, 179, 255)",  # light purple
-    "rgb(235, 203, 219)",  # light rose
-    "rgb(184, 226, 214)",  # light teal-green
-    "rgb(250, 244, 181)",  # light yellow
-    "rgb(232, 190, 186)",  # light red
-]
-
+from jbi100_app.data.constants import MAX_SELECTED_COUNTRIES, SELECTION_COLOR_POOL, SELECTION_COLOR_POOL_LIGHT
 
 class SelectedCountry(TypedDict):
     country_name: str

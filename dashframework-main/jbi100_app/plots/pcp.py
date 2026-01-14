@@ -46,31 +46,25 @@ def build_pcp_figure(
     show_selected_only: bool = False,
     color_by_first_axis: bool = False,
 ) -> go.Figure:
+
+    MARGIN = dict(l=60, r=60, t=50, b=25)
+
+    # ------------------------------------------------------------
+    # Pick dimensions
+    # ------------------------------------------------------------
     if dims_override:
         dims = [d for d in dims_override if d in df.columns][:max_dims]
     else:
         dims = pick_pcp_dims(df, ui_category, max_dims=max_dims)
-
-    MARGIN = dict(l=60, r=60, t=50, b=25)
-
-    if dims_override is not None and len(dims) < 2:
-        fig = go.Figure()
-        fig.add_annotation(
-            text="Select at least 2 attributes in the sidebar to view the PCP",
-            x=0.5, y=0.5, xref="paper", yref="paper",
-            showarrow=False,
-            font=dict(size=18, color="#374151"),
-            align="center",
-        )
-        fig.update_layout(template="plotly_white", margin=MARGIN, title=None, showlegend=False)
-        return fig
 
     if df is None or df.empty or len(dims) < 2:
         fig = go.Figure()
         fig.update_layout(template="plotly_white", margin=MARGIN, uirevision=uirevision)
         return fig
 
-    # ---- normalize
+    # ------------------------------------------------------------
+    # Normalize data
+    # ------------------------------------------------------------
     work = df[["Country"] + dims].copy()
     for c in dims:
         work[c] = coerce_numeric(work[c])
@@ -78,66 +72,76 @@ def build_pcp_figure(
         work[c] = work[c].fillna(med)
 
         mn, mx = float(work[c].min()), float(work[c].max())
-        if np.isfinite(mn) and np.isfinite(mx) and mx > mn:
-            work[c] = (work[c] - mn) / (mx - mn)
-        else:
-            work[c] = 0.0
+        work[c] = (work[c] - mn) / (mx - mn) if mx > mn else 0.0
 
-    # ---- selected countries list (for both modes)
+    # ------------------------------------------------------------
+    # Parse selected countries (store BOTH colours)
+    # ------------------------------------------------------------
     selected_names: list[str] = []
-    sel_colour_map: dict[str, str] = {}
+    sel_colours: dict[str, dict[str, str]] = {}
+
     for d in (selection_store or []):
         if not isinstance(d, dict):
             continue
-        n = d.get("country_name")
-        c = d.get("colour_rgb")
-        if not n or not c:
+        name = d.get("country_name")
+        dark = d.get("colour_rgb")
+        light = d.get("colour_rgb_light") or dark
+        if not name or not dark:
             continue
-        if n not in sel_colour_map:
-            selected_names.append(n)
-            sel_colour_map[n] = c
 
+        if name not in sel_colours:
+            selected_names.append(name)
+            sel_colours[name] = {"dark": dark, "light": light}
+
+    # ------------------------------------------------------------
+    # Selected-only filtering (IMPORTANT: before masks)
+    # ------------------------------------------------------------
     if show_selected_only:
-        keep = set(selected_names)
-        if not keep:
+        if not selected_names:
             fig = go.Figure()
             fig.update_layout(template="plotly_white", margin=MARGIN, uirevision=uirevision)
             return fig
-        work = work[work["Country"].astype(str).isin(keep)].copy()
+        work = work[work["Country"].astype(str).isin(selected_names)].copy()
 
+    # ------------------------------------------------------------
+    # Recompute masks AFTER filtering
+    # ------------------------------------------------------------
     countries = work["Country"].astype(str).to_numpy()
 
-    # ---- scope mask: fade out-of-scope (continent/region)
-    if in_mask is not None and isinstance(in_mask, pd.Series) and len(in_mask) == len(df):
-        # map df-level mask -> work rows by Country match
-        # (work is derived from df, but may be filtered by selected_only)
-        df_in = pd.Series(in_mask.to_numpy(dtype=bool), index=df["Country"].astype(str))
-        in_scope = np.array([bool(df_in.get(str(c), True)) for c in countries], dtype=bool)
+    # scope mask
+    if in_mask is not None and len(in_mask) == len(df):
+        df_scope = pd.Series(in_mask.to_numpy(dtype=bool), index=df["Country"].astype(str))
+        in_scope = np.array([df_scope.get(c, True) for c in countries], dtype=bool)
     else:
         in_scope = np.ones(len(work), dtype=bool)
 
-    # ---- brush mask
+    # brush mask
     brush_set = set(str(x) for x in (brush_countries or []) if x)
-    in_brush = np.ones(len(work), dtype=bool)
-    if brush_set:
-        in_brush = np.isin(countries, np.array(list(brush_set), dtype=str))
+    in_brush = (
+        np.isin(countries, np.array(list(brush_set), dtype=str))
+        if brush_set
+        else np.ones(len(work), dtype=bool)
+    )
 
-    dimensions = [{"label": pretty_metric(c), "values": work[c].to_numpy()} for c in dims]
+    # ------------------------------------------------------------
+    # PCP dimensions
+    # ------------------------------------------------------------
+    dimensions = [
+        {"label": pretty_metric(c), "values": work[c].to_numpy()}
+        for c in dims
+    ]
 
     # ============================================================
-    # MODE A: Color by first axis (single trace, stable)
-    # - Out-of-scope and/or non-brushed -> faded grey via sentinel
+    # MODE A: Color by first axis (EARLY EXIT)
     # ============================================================
     if color_by_first_axis:
         first_dim = dims[0]
-        vals = work[first_dim].to_numpy(dtype=float)  # 0..1
+        vals = work[first_dim].to_numpy(dtype=float)
 
-        # Sentinel: everything "inactive" becomes grey
         sentinel = -0.10
         active = in_scope & in_brush
         vals = np.where(active, vals, sentinel)
 
-        # Colorscale: a grey band at bottom, then Viridis for 0..1
         colorscale = [
             [0.0, FADED_GREY],
             [0.0909, FADED_GREY],
@@ -157,9 +161,6 @@ def build_pcp_figure(
                         colorbar=dict(title=pretty_metric(first_dim)),
                     ),
                     dimensions=dimensions,
-                    labelfont=dict(size=12),
-                    tickfont=dict(size=10),
-                    domain=dict(x=[0.05, 0.95]),
                 )
             ]
         )
@@ -167,45 +168,50 @@ def build_pcp_figure(
         fig.update_layout(
             template="plotly_white",
             margin=MARGIN,
-            title=None,
-            showlegend=False,
             uirevision=uirevision,
         )
         return fig
 
     # ============================================================
-    # MODE B: Discrete colours (selected colours + scope/brush fade)
+    # MODE B: Discrete colours (default)
     # ============================================================
     # Codes:
-    # 0 = faded (out of scope OR out of brush)
-    # 1 = base grey (in scope)
+    # 0 = faded
+    # 1 = base grey
     # 2+ = selected countries
     codes = np.ones(len(work), dtype=int)
 
-    # first apply scope fade
     codes[~in_scope] = 0
-
-    # then apply brush fade (also fades out-of-scope already)
-    if brush_set:
-        codes[~in_brush] = 0
+    codes[~in_brush] = 0
 
     name_to_code = {name: 2 + i for i, name in enumerate(selected_names)}
-    for i, cname in enumerate(countries.tolist()):
-        code = name_to_code.get(cname)
-        if code is not None:
-            codes[i] = code
 
-    k = len(selected_names)
-    cmax = 2 + max(0, k - 1)
+    for i, cname in enumerate(countries):
+        if cname in name_to_code:
+            codes[i] = name_to_code[cname]
 
-    code_to_colour: dict[int, str] = {
+    # ------------------------------------------------------------
+    # Colour map (brush-aware)
+    # ------------------------------------------------------------
+    code_to_colour = {
         0: FADED_GREY,
         1: BASE_GREY,
     }
-    for i, name in enumerate(selected_names):
-        code_to_colour[2 + i] = sel_colour_map[name]
 
-    colourscale = _build_discrete_colorscale(code_to_colour, cmax=cmax)
+    for i, name in enumerate(selected_names):
+        dark = sel_colours[name]["dark"]
+        light = sel_colours[name]["light"]
+
+        idx = np.where(countries == name)[0]
+        if len(idx) > 0 and in_brush[idx[0]]:
+            code_to_colour[2 + i] = dark
+        else:
+            code_to_colour[2 + i] = light
+
+    colourscale = _build_discrete_colorscale(
+        code_to_colour,
+        cmax=max(code_to_colour),
+    )
 
     fig = go.Figure(
         data=[
@@ -214,13 +220,10 @@ def build_pcp_figure(
                     color=codes.astype(float),
                     colorscale=colourscale,
                     cmin=0,
-                    cmax=cmax,
+                    cmax=max(code_to_colour),
                     showscale=False,
                 ),
                 dimensions=dimensions,
-                labelfont=dict(size=12),
-                tickfont=dict(size=10),
-                domain=dict(x=[0.05, 0.95]),
             )
         ]
     )
@@ -228,9 +231,9 @@ def build_pcp_figure(
     fig.update_layout(
         template="plotly_white",
         margin=MARGIN,
-        title=None,
-        showlegend=False,
         uirevision=uirevision,
     )
 
     return fig
+
+

@@ -1,6 +1,7 @@
 # dashframework-main/main.py
 import dash
 from dash import Dash, html, dcc, Input, Output
+import dash_bootstrap_components as dbc
 
 from jbi100_app.views.landing import layout as landing_layout
 from jbi100_app.views.layout import layout as vis_layout
@@ -15,7 +16,9 @@ from jbi100_app.callbacks import distribution_callbacks
 from jbi100_app.callbacks import pcp_callbacks
 from jbi100_app.callbacks import radar_callbacks
 
-app = Dash(__name__, suppress_callback_exceptions=True)
+app = Dash(__name__,
+    external_stylesheets=[dbc.themes.BOOTSTRAP],
+           suppress_callback_exceptions=True)
 app.title = "JBI100 Dashboard"
 
 app.layout = html.Div(

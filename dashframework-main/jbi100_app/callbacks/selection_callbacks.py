@@ -121,7 +121,6 @@ def init_or_update_country_dropdown(vis_country_value, cur_sel_store):
     return names_from_store(merged), opts, warn, merged, popup_msg, show_popup
 
 
-# ✅ Clear button: clears ONLY the PCP filter (brush), keeps selected countries
 @callback(
     Output("vis-country", "value", allow_duplicate=True),
     Output("vis-selection-store", "data", allow_duplicate=True),
@@ -188,3 +187,24 @@ def cap_attr_pool_to_8(selected):
     capped = selected[:MAX_ATTRS]
     msg = f"You can select at most {MAX_ATTRS} attributes."
     return capped, msg, True
+
+
+@callback(
+    Output("vis-selected-attributes", "data"),
+    Input("vis-attr-pool", "value"),
+)
+def update_selected_attributes(attr_pool_value):
+    """
+    Authoritative attribute selection handler.
+    Always returns a list[str].
+    """
+
+    if not attr_pool_value:
+        return []
+
+    # attr-pool should already be multi-select,
+    # but normalize defensively
+    if isinstance(attr_pool_value, list):
+        return attr_pool_value
+
+    return [attr_pool_value]

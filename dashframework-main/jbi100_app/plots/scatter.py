@@ -68,7 +68,7 @@ def build_scatter_figure(
                 color=base_colours,
             ),
             selected=dict(marker=dict(size=7)),
-            unselected=dict(marker=dict(opacity=0.15)),
+            unselected=dict(marker=dict(opacity=0.03)),
             text=df["Country"],
             hovertemplate="<b>%{text}</b><br>"
             + pretty_metric(x_metric)
@@ -85,6 +85,8 @@ def build_scatter_figure(
     for item in selection_store:
         cname = item.get("country_name")
         ccol = item.get("colour_rgb") or "rgb(180,35,24)"
+        ccol_light = item.get("colour_rgb_light")
+
         if not cname:
             continue
 
@@ -98,6 +100,11 @@ def build_scatter_figure(
         if not (np.isfinite(float(xv)) and np.isfinite(float(yv))):
             continue
 
+        if brush_set and cname not in brush_set:
+            marker_colour = ccol_light
+        else:
+             marker_colour = ccol
+
         fig.add_trace(
             go.Scatter(
                 x=[float(xv)],
@@ -105,7 +112,7 @@ def build_scatter_figure(
                 mode="markers",
                 marker=dict(
                     size=12,
-                    color=ccol,
+                    color=marker_colour,
                     line=dict(width=1, color="rgba(0,0,0,0.35)"),
                 ),
                 hovertemplate="<b>" + cname + "</b><br>"
