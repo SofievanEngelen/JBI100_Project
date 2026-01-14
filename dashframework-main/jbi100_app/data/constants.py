@@ -13,23 +13,24 @@ from __future__ import annotations
 #     "rgb(241, 110, 195)", #F16EC3 - Pink
 # ]
 SELECTION_COLOR_POOL = [
-    "rgb(213, 94, 0)",     # Orange
+    "rgb(255, 120, 9)",     # Orange
     "rgb(174, 0, 255)",    # Purple
     "rgb(204, 121, 167)",  # Magenta
-    "rgb(0, 158, 115)",    # Green
+    # "rgb(0, 158, 115)",    # Green
     "rgb(240, 228, 66)",   # Yellow
     "rgb(180, 35, 24)",    # Red
+    "rgb(98, 49, 7)",  # Brown
 ]
 
 SELECTION_COLOR_POOL_LIGHT = [
     "rgb(241, 193, 163)",  # light orange
     "rgb(220, 179, 255)",  # light purple
     "rgb(235, 203, 219)",  # light magenta
-    "rgb(184, 226, 214)",  # light green
+    # "rgb(184, 226, 214)",  # light green
     "rgb(250, 244, 181)",  # light yellow
     "rgb(232, 190, 186)",  # light red
+    "rgb(176, 117, 65)",  # light brown
 ]
-
 
 # ---------------------------------
 # Filtering / base colours (global)
@@ -70,3 +71,11 @@ HIST_IN_SCOPE_RGBA = BASE_GREY
 HIST_OUT_SCOPE_RGBA = FADED_GREY
 HIST_BRUSH_RGBA = "rgba(163,22,33,0.45)"    # brush overlay bars
 KDE_IN_SCOPE_RGBA = "rgba(105,105,105,0.85)"  # density line
+
+# Attributes that should use log scale
+LOG_SCALE_ATTRS = {
+    "GDP",
+    "GDP per capita",
+    "CO2 emissions",
+    "Population",
+}
