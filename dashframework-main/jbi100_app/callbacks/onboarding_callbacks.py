@@ -125,3 +125,28 @@ def add_category_attributes_to_selected(n, cat_list, current_attrs):
     add = _union_cat_attrs(keys)
     merged = _unique_keep_order(_as_list(current_attrs) + add)
     return merged
+
+from dash import Input, Output, State, callback, no_update
+
+@callback(
+    Output("onboarding-modal", "is_open"),
+    Output("vis-country", "value", allow_duplicate=True),
+    Output("vis-attr-pool", "value", allow_duplicate=True),
+    Input("onboarding-confirm", "n_clicks"),
+    State("onboarding-country", "value"),
+    State("onboarding-attr", "value"),
+    prevent_initial_call=True,
+)
+def apply_onboarding_selection(n_clicks, countries, attrs):
+    """
+    Push onboarding selections directly into the sidebar.
+    """
+
+    if not n_clicks:
+        return no_update, no_update, no_update
+
+    return (
+        False,                 # close modal
+        countries or [],       # populate country sidebar
+        attrs or [],           # populate attribute sidebar
+    )

@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from dash import html, dcc
+import dash_bootstrap_components as dbc
 
-from jbi100_app.data.data_loader import DATA_INFO
+from jbi100_app.data.data_loader import DATA_INFO, ALL_COUNTRIES
 from jbi100_app.data.category_mapping import UI_CATEGORIES, UI_CATEGORY_LABELS
 
 
@@ -80,10 +81,41 @@ def _plot_wrap(children, style_extra=None):
     return html.Div(style=style, children=children)
 
 
+def _attr_to_ui_category() -> dict[str, str]:
+    """
+    Build reverse mapping: attribute -> ui_category_key
+    (used ONLY for display labels; values remain raw attribute names).
+    """
+    m: dict[str, str] = {}
+    if isinstance(UI_CATEGORIES, dict):
+        for ui_cat, attrs in UI_CATEGORIES.items():
+            if not isinstance(attrs, (list, tuple)):
+                continue
+            for a in attrs:
+                if isinstance(a, str):
+                    m[a] = ui_cat
+    return m
+
+
 _ALL_ATTRS = _numeric_attribute_values()
-_ATTR_OPTIONS = [{"label": a.replace("_", " "), "value": a} for a in _ALL_ATTRS]
 
 _LABELS = _label_map()
+_ATTR_TO_CAT = _attr_to_ui_category()
+
+
+def _pretty_attr_label(attr: str) -> str:
+    # Keep the stored value raw; only decorate the visible label
+    ui_cat = _ATTR_TO_CAT.get(attr)
+    if ui_cat:
+        cat_label = _LABELS.get(ui_cat, ui_cat)
+        cat_label = cat_label.replace("_", " & ").title()
+        attr = attr.replace("_", " ").title()
+        return f"{cat_label} - {attr}"
+    return attr.replace("_", " ")
+
+
+_ATTR_OPTIONS = [{"label": _pretty_attr_label(a), "value": a} for a in _ALL_ATTRS]
+
 _CATEGORY_OPTIONS = [
     {"label": _LABELS.get(k, k), "value": k}
     for k in (UI_CATEGORIES.keys() if isinstance(UI_CATEGORIES, dict) else [])
@@ -93,22 +125,24 @@ PLOT_CONFIG = {"displayModeBar": False, "responsive": True}
 
 
 layout = html.Div(
+    id="root",
     style={
         "height": "100%",
         "width": "100%",
-        "overflow": "hidden",
         "padding": "10px 10px 25px 10px",
         "boxSizing": "border-box",
         "background": "#f6f7fb",
     },
     children=[
         html.Div(
+            id="app-root",
             style={
                 "height": "100%",
                 "display": "grid",
-                "gridTemplateColumns": "240px 1fr",
+                "gridTemplateColumns": "350px 1fr",
                 "gap": "12px",
                 "minHeight": 0,
+                # "overflow": "hidden",
             },
             children=[
                 # =========================
@@ -189,6 +223,7 @@ layout = html.Div(
                         dcc.Store(id="pcp-brush-store", data=None),
                         dcc.Store(id="vis-selection-store", data=[]),
                         dcc.Store(id="pcp-dims-store", data=None),
+                        dcc.Store(id="vis-selected-attributes"),
                     ],
                 ),
 
@@ -225,7 +260,9 @@ layout = html.Div(
                                                     value=_ALL_ATTRS[0] if _ALL_ATTRS else None,
                                                     clearable=False,
                                                     placeholder="Select Attribute",
-                                                    style={"width": "320px"},
+                                                    style={"width": "400px",
+                                                           "marginLeft": "0"
+                                                           },
                                                 ),
                                             ],
                                         ),
@@ -332,16 +369,18 @@ layout = html.Div(
                         _panel(
                             children=[
                                 html.Div(
-                                    style={"display": "flex", "justifyContent": "space-between", "alignItems": "center", "gap": "14px"},
+                                    style={"display": "flex",
+                                           "justifyContent": "space-between",
+                                           "alignItems": "center",
+                                           "gap": "14px"},
                                     children=[
                                         html.Div("Parallel Coordinates", style={"fontSize": "14px", "fontWeight": "900", "color": "#3a3a3a"}),
                                         html.Div(
                                             style={"display": "flex", "alignItems": "center", "gap": "14px"},
                                             children=[
-                                                # ✅ This was missing (fixes your error)
                                                 dcc.Checklist(
                                                     id="vis-pcp-color-first-axis",
-                                                    options=[{"label": "Color by 1st axis", "value": "on"}],
+                                                    options=[{"label": "Colour by 1st axis", "value": "on"}],
                                                     value=[],
                                                     style={"fontSize": "12px"},
                                                     inputStyle={"marginRight": "6px"},
@@ -358,13 +397,48 @@ layout = html.Div(
                                     ],
                                 ),
                                 _plot_wrap(
-                                    dcc.Graph(id="vis-pcp", config=PLOT_CONFIG, style={"height": "100%", "width": "100%"})
+                                    dcc.Graph(id="vis-pcp",
+                                              config=PLOT_CONFIG,
+                                              style={"height": "100%", "width": "100%"})
                                 ),
                             ],
                         ),
                     ],
                 ),
             ],
-        )
+        ),
+        dbc.Modal(
+            id="onboarding-modal",
+            is_open=True,
+            centered=True,
+            size="lg",
+            backdrop=True,
+            className="onboarding-modal",
+            children=[
+                dbc.ModalHeader(dbc.ModalTitle("Welcome to the JBI100 Explorer")),
+                dbc.ModalBody([
+                    html.P("Before we start, choose the countries and attributes you want to explore."),
+
+                    html.Label("Select countries"),
+                    dcc.Dropdown(
+                        id="onboarding-country",
+                        options=[{"label": c, "value": c} for c in sorted(ALL_COUNTRIES)],
+                        multi=True,
+                    ),
+
+                    html.Br(),
+
+                    html.Label("Select attributes"),
+                    dcc.Dropdown(
+                        id="onboarding-attr",
+                        options=_ATTR_OPTIONS,
+                        multi=True,
+                    ),
+                ]),
+                dbc.ModalFooter(
+                    dbc.Button("Start exploring", id="onboarding-confirm", color="primary")
+                ),
+            ],
+        ),
     ],
 )
