@@ -156,7 +156,7 @@ def _scope_mask(df: pd.DataFrame, geo_scale: str, geo_scope) -> pd.Series:
     Input("pcp-brush-store", "data"),
     Input("vis-geo-scale", "value"),
     Input("vis-geo-scope-dd", "value"),   # ✅ NEW
-    Input("vis-attr-pool", "value"),
+    Input("vis-selected-attributes", "data"),
     Input("pcp-dims-store", "data"),
     Input("vis-clear-all", "n_clicks"),
     Input("vis-pcp-selected-only", "value"),

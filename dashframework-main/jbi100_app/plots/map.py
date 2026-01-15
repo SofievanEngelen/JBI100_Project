@@ -37,6 +37,51 @@ def build_map_figure(
     brush_set = set(brush_country_keys or [])
 
     # ------------------------------------------------------------------
+    # Colour scale logic (NEW)
+    # ------------------------------------------------------------------
+    finite = plot_df["_z"][np.isfinite(plot_df["_z"])]
+    if finite.empty:
+        vmin = vmax = 0.0
+    else:
+        vmin = float(finite.min())
+        vmax = float(finite.max())
+
+    use_diverging = (vmin < 0) and (vmax > 0)
+
+    if use_diverging:
+        vmax_abs = max(abs(vmin), abs(vmax))
+        coloraxis = dict(
+            colorscale="RdBu",
+            cmin=-vmax_abs,
+            cmax=vmax_abs,
+            cmid=0,
+            colorbar=dict(
+                orientation="h",
+                x=0.5,
+                xanchor="center",
+                y=0.96,
+                yanchor="bottom",
+                len=0.7,
+                thickness=14,
+            ),
+        )
+    else:
+        coloraxis = dict(
+            colorscale=COLOR_SCALE,
+            cmin=vmin,
+            cmax=vmax,
+            colorbar=dict(
+                orientation="h",
+                x=0.5,
+                xanchor="center",
+                y=0.96,
+                yanchor="bottom",
+                len=0.7,
+                thickness=14,
+            ),
+        )
+
+    # ------------------------------------------------------------------
     # 1) Base choropleth: ALL countries with metric scale
     # ------------------------------------------------------------------
     fig.add_trace(
@@ -44,11 +89,13 @@ def build_map_figure(
             locations=plot_df["_PLOTLY_NAME"],
             locationmode="country names",
             z=plot_df["_z"],
-            colorscale=COLOR_SCALE,
+            coloraxis="coloraxis",
             marker_line_color="rgba(255,255,255,0.35)",
             marker_line_width=0.5,
-            colorbar=dict(orientation="h"),
-            hovertemplate="<b>%{text}</b><br>" + pretty_metric(metric) + ": %{z}<extra></extra>",
+            hovertemplate=(
+                "<b>%{text}</b><br>"
+                f"{pretty_metric(metric)}: %{{z}}<extra></extra>"
+            ),
             text=plot_df["Country"],
         )
     )
@@ -70,7 +117,7 @@ def build_map_figure(
             go.Choropleth(
                 locations=plot_df.loc[out_mask, "_PLOTLY_NAME"],
                 locationmode="country names",
-                z=[0] * int(out_mask.sum()),
+                z=[1] * int(out_mask.sum()),
                 colorscale=[[0, "white"], [1, "white"]],
                 showscale=False,
                 marker_line_color="rgba(180,180,180,0.6)",
@@ -131,7 +178,7 @@ def build_map_figure(
                 go.Choropleth(
                     locations=[plotly_name],
                     locationmode="country names",
-                    z=[0],
+                    z=[1],
                     colorscale=[[0, _TRANSPARENT], [1, _TRANSPARENT]],
                     showscale=False,
                     marker_line_color=outline_color,
@@ -140,10 +187,14 @@ def build_map_figure(
                 )
             )
 
+    # ------------------------------------------------------------------
+    # Layout
+    # ------------------------------------------------------------------
     fig.update_layout(
         template="plotly_white",
         margin=dict(l=0, r=0, t=0, b=0),
         geo=dict(showframe=False, showcoastlines=False),
+        coloraxis=coloraxis,
     )
 
     return fig

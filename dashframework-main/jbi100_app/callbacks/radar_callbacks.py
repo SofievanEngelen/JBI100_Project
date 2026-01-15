@@ -17,7 +17,7 @@ def _safe_df() -> pd.DataFrame:
 
 @callback(
     Output("vis-radar-plot", "figure"),
-    Input("vis-attr-pool", "value"),
+    Input("vis-selected-attributes", "data"),
     Input("vis-selection-store", "data"),
 )
 def update_radar(attr_pool, selection_store):

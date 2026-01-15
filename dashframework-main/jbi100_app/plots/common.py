@@ -6,6 +6,7 @@ import pandas as pd
 
 from jbi100_app.data.constants import META_COLS
 from jbi100_app.data.category_mapping import UI_CATEGORIES
+from jbi100_app.data.category_mapping import UI_CATEGORIES, UI_CATEGORY_LABELS
 
 
 def coerce_numeric(s: pd.Series) -> pd.Series:
@@ -60,6 +61,45 @@ def prepare_hist_bins(x: np.ndarray, bins: int = 30) -> tuple[np.ndarray, float,
     bin_width = float(edges[1] - edges[0])
     grid = np.linspace(lo2, hi2, 240)
     return grid, bin_width, lo2, hi2
+
+def _attr_to_ui_category() -> dict[str, str]:
+    """
+    Build reverse mapping: attribute -> ui_category_key
+    (used ONLY for display labels; values remain raw attribute names).
+    """
+    m: dict[str, str] = {}
+    if isinstance(UI_CATEGORIES, dict):
+        for ui_cat, attrs in UI_CATEGORIES.items():
+            if not isinstance(attrs, (list, tuple)):
+                continue
+            for a in attrs:
+                if isinstance(a, str):
+                    m[a] = ui_cat
+    return m
+
+def _label_map() -> dict:
+    if isinstance(UI_CATEGORY_LABELS, dict):
+        return UI_CATEGORY_LABELS
+    m: dict = {}
+    if isinstance(UI_CATEGORY_LABELS, (list, tuple)):
+        for item in UI_CATEGORY_LABELS:
+            if isinstance(item, dict) and "value" in item and "label" in item:
+                m[item["value"]] = item["label"]
+    return m
+
+def _pretty_attr_label(attr: str) -> str:
+    # Keep the stored value raw; only decorate the visible label
+    _ATTR_TO_CAT = _attr_to_ui_category()
+    _LABELS = _label_map()
+    ui_cat = _ATTR_TO_CAT.get(attr)
+
+    if ui_cat:
+        cat_label = _LABELS.get(ui_cat, ui_cat)
+        cat_label = cat_label.replace("_", " & ").title()
+        attr = attr.replace("_", " ").title()
+        return f"{cat_label} - {attr}"
+    return attr.replace("_", " ")
+
 
 
 def kde_counts(x: np.ndarray, grid: np.ndarray, bin_width: float, bw: float | None = None) -> np.ndarray:

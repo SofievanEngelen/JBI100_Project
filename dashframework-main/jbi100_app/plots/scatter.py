@@ -100,10 +100,12 @@ def build_scatter_figure(
         if not (np.isfinite(float(xv)) and np.isfinite(float(yv))):
             continue
 
-        if brush_set and cname not in brush_set:
-            marker_colour = ccol_light
-        else:
-             marker_colour = ccol
+        row_idx = row.index[0]
+
+        in_brush = (not brush_set) or (cname in brush_set)
+        active = bool(in_mask_arr[row_idx]) and in_brush
+
+        marker_colour = ccol if active else ccol_light
 
         fig.add_trace(
             go.Scatter(

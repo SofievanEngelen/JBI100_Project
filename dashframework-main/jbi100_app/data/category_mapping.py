@@ -31,17 +31,17 @@ UI_CATEGORIES = {
         "total_fertility_rate",
     ],
     "communication_infrastructure": [
-        "internet_users_per_100_population",
+        "internet_users_total",
         "digital_access_index",
     ],
 }
 
 UI_CATEGORY_LABELS = [
     ("economy", "Economy"),
-    ("energy_environment", "Energy & environment"),
-    ("population_society", "Population & society"),
-    ("geography_politics", "Geography & politics"),
-    ("communication_infrastructure", "Communication & infrastructure"),
+    ("environment", "Energy & environment"),
+    ("population", "Population & society"),
+    ("geography", "Geography & politics"),
+    ("infrastructure", "Communication & infrastructure"),
 ]
 
 # Final version does NOT use multi-dataset loading as core logic.

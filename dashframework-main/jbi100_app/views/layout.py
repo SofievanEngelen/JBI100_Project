@@ -5,17 +5,10 @@ import dash_bootstrap_components as dbc
 
 from jbi100_app.data.data_loader import DATA_INFO, ALL_COUNTRIES
 from jbi100_app.data.category_mapping import UI_CATEGORIES, UI_CATEGORY_LABELS
+from jbi100_app.plots.common import _pretty_attr_label, _label_map
 
 
-def _label_map() -> dict:
-    if isinstance(UI_CATEGORY_LABELS, dict):
-        return UI_CATEGORY_LABELS
-    m: dict = {}
-    if isinstance(UI_CATEGORY_LABELS, (list, tuple)):
-        for item in UI_CATEGORY_LABELS:
-            if isinstance(item, dict) and "value" in item and "label" in item:
-                m[item["value"]] = item["label"]
-    return m
+
 
 
 def _numeric_attribute_values() -> list[str]:
@@ -81,38 +74,12 @@ def _plot_wrap(children, style_extra=None):
     return html.Div(style=style, children=children)
 
 
-def _attr_to_ui_category() -> dict[str, str]:
-    """
-    Build reverse mapping: attribute -> ui_category_key
-    (used ONLY for display labels; values remain raw attribute names).
-    """
-    m: dict[str, str] = {}
-    if isinstance(UI_CATEGORIES, dict):
-        for ui_cat, attrs in UI_CATEGORIES.items():
-            if not isinstance(attrs, (list, tuple)):
-                continue
-            for a in attrs:
-                if isinstance(a, str):
-                    m[a] = ui_cat
-    return m
+
 
 
 _ALL_ATTRS = _numeric_attribute_values()
 
 _LABELS = _label_map()
-_ATTR_TO_CAT = _attr_to_ui_category()
-
-
-def _pretty_attr_label(attr: str) -> str:
-    # Keep the stored value raw; only decorate the visible label
-    ui_cat = _ATTR_TO_CAT.get(attr)
-    if ui_cat:
-        cat_label = _LABELS.get(ui_cat, ui_cat)
-        cat_label = cat_label.replace("_", " & ").title()
-        attr = attr.replace("_", " ").title()
-        return f"{cat_label} - {attr}"
-    return attr.replace("_", " ")
-
 
 _ATTR_OPTIONS = [{"label": _pretty_attr_label(a), "value": a} for a in _ALL_ATTRS]
 
@@ -164,7 +131,7 @@ layout = html.Div(
 
                         html.Div(
                             "Visualization Tool",
-                            style={"fontSize": "16px", "fontWeight": "900", "color": "#0b1f3b", "marginBottom": "10px"},
+                            style={"fontSize": "16px", "fontWeight": "900", "color": "#0b1f3b", "marginBottom": "6px"},
                         ),
                         html.Div("Select Country (max 6)", style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"}),
                         dcc.Dropdown(
@@ -184,12 +151,12 @@ layout = html.Div(
                                 {"label": "Continent", "value": "continent"},
                                 {"label": "Region", "value": "region"},
                             ],
-                            style={"marginTop": "4px", "marginBottom": "10px"},
+                            style={"marginTop": "4px", "marginBottom": "6px"},
                             inputStyle={"marginRight": "8px"},
                         ),
                         html.Div(
                             id="vis-geo-scope-container",
-                            style={"marginTop": "6px", "display": "none", "marginBottom": "10px"},
+                            style={"marginTop": "6px", "display": "none", "marginBottom": "6px"},
                             children=[
                                 html.Div("Visible area", style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"}),
                                 dcc.Dropdown(
@@ -198,7 +165,7 @@ layout = html.Div(
                                     value=None,
                                     clearable=False,
                                     placeholder="Select continent / region",
-                                    style={"marginBottom": "10px"},
+                                    style={"marginBottom": "6px"},
                                 ),
                             ],
                         ),
@@ -209,10 +176,10 @@ layout = html.Div(
                             value=[],
                             multi=True,
                             placeholder="Select attributes",
-                            style={"marginBottom": "10px"},
+                            style={"marginBottom": "6px"},
                         ),
                         html.Div(id="vis-warnings", style={"fontSize": "11px", "color": "#b91c1c"}),
-                        html.Button("Clear filter", id="vis-clear-all", n_clicks=0, style={"width": "100%", "marginBottom": "10px"}),
+                        html.Button("Clear filter", id="vis-clear-all", n_clicks=0, style={"width": "100%", "marginBottom": "6px"}),
                         html.Hr(style={"margin": "8px 0"}),
                         html.Div("Population", style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"}),
                         html.Div(id="vis-population-text", style={"fontSize": "11px", "color": "#516074"}),
@@ -234,7 +201,7 @@ layout = html.Div(
                     style={
                         "height": "100%",
                         "display": "grid",
-                        "gridTemplateRows": "56% 44%",
+                        "gridTemplateRows": "50% 43%",
                         "gap": "12px",
                         "minHeight": 0,
                     },
@@ -253,7 +220,7 @@ layout = html.Div(
                                         html.Div(
                                             style={"display": "flex", "justifyContent": "space-between", "alignItems": "center", "gap": "12px"},
                                             children=[
-                                                html.Div("Map", style={"fontSize": "14px", "fontWeight": "900", "color": "#3a3a3a"}),
+                                                html.Div("Map", style={"fontSize": "18px", "fontWeight": "900", "color": "#3a3a3a"}),
                                                 dcc.Dropdown(
                                                     id="vis-metric",
                                                     options=_ATTR_OPTIONS,
@@ -274,17 +241,39 @@ layout = html.Div(
                                 _panel(
                                     style_extra={"maxWidth": "50%"},
                                     children=[
-                                        html.Div("Select Visualisation", style={"fontSize": "14px", "fontWeight": "900", "color": "#3a3a3a"}),
-                                        dcc.Dropdown(
-                                            id="vis-right-viz",
-                                            options=[
-                                                {"label": "Scatter plot", "value": "scatter"},
-                                                {"label": "Histogram", "value": "hist"},
-                                                {"label": "Violin plot", "value": "violin"},
-                                                {"label": "Radar plot", "value": "radar"},
+                                        html.Div(
+                                            [
+                                                html.Div(
+                                                    "Select Visualisation",
+                                                    style={
+                                                        "fontSize": "18px",
+                                                        "fontWeight": "900",
+                                                        "margin": "0",
+                                                        "whiteSpace": "nowrap",
+                                                    },
+                                                ),
+                                                dcc.Dropdown(
+                                                    id="vis-right-viz",
+                                                    options=[
+                                                        {"label": "Scatter plot", "value": "scatter"},
+                                                        {"label": "Histogram", "value": "hist"},
+                                                        {"label": "Violin plot", "value": "violin"},
+                                                        {"label": "Radar plot", "value": "radar"},
+                                                    ],
+                                                    value="scatter",
+                                                    clearable=False,
+                                                    style={
+                                                        "minWidth": "220px",
+                                                        "marginLeft": "auto",
+                                                    },
+                                                ),
                                             ],
-                                            value="scatter",
-                                            clearable=False,
+                                            style={
+                                                "display": "flex",
+                                                "alignItems": "center",
+                                                # "gap": "12px",
+                                                # "marginBottom": "12px",
+                                            },
                                         ),
                                         html.Div(
                                             id="vis-controls-scatter",
@@ -374,7 +363,7 @@ layout = html.Div(
                                            "alignItems": "center",
                                            "gap": "14px"},
                                     children=[
-                                        html.Div("Parallel Coordinates", style={"fontSize": "14px", "fontWeight": "900", "color": "#3a3a3a"}),
+                                        html.Div("Parallel Coordinates", style={"fontSize": "18px", "fontWeight": "900", "color": "#3a3a3a"}),
                                         html.Div(
                                             style={"display": "flex", "alignItems": "center", "gap": "14px"},
                                             children=[

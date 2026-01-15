@@ -97,7 +97,6 @@ def update_histogram(metric, bins, geo_scale, geo_scope, selection_store, brush_
     if isinstance(brush_data, dict) and brush_data.get("countries"):
         brush = [str(x) for x in brush_data.get("countries", []) if x]
 
-    # ✅ in-scope mask now reflects the actual continent/region dropdown selection
     in_mask = _scope_mask(df, geo_scale or "global", geo_scope) if not df.empty else None
 
     fig = build_histogram_figure(
@@ -121,24 +120,11 @@ def update_histogram(metric, bins, geo_scale, geo_scope, selection_store, brush_
     Input("vis-geo-scale", "value"),
     Input("vis-geo-scope-dd", "value"),  # ✅ NEW (so violin scope matches)
     Input("vis-selection-store", "data"),
-    Input("pcp-brush-store", "data"),
 )
-def update_violin(metric, geo_scale, geo_scope, selection_store, brush_data):
-    """
-    Violin SHOULD reflect the global brush filter (unlike histogram base distribution).
-    """
+def update_violin(metric, geo_scale, geo_scope, selection_store):
     df = _safe_df()
 
     selection_store = normalize_selection_store(selection_store)
-
-    brush = []
-    if isinstance(brush_data, dict) and brush_data.get("countries"):
-        brush = [str(x) for x in brush_data.get("countries", []) if x]
-
-    # ✅ Apply global filter here
-    df = apply_temp_region_filter(df, brush)
-
-    # ✅ Scope mask reflects continent/region selection
     in_mask = _scope_mask(df, geo_scale or "global", geo_scope) if not df.empty else None
 
     return build_violin_figure(
@@ -148,7 +134,6 @@ def update_violin(metric, geo_scale, geo_scope, selection_store, brush_data):
         in_mask=in_mask,
         selection_store=selection_store,
     )
-
 
 # ---------------------------------------------------------------------
 # Histogram bin click -> global filter (pcp-brush-store)

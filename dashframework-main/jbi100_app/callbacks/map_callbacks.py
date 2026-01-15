@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import pandas as pd
-from dash import Input, Output, callback
+from dash import Input, Output, callback, State
 
 from jbi100_app.data.data_loader import DATA_INFO, CONTINENTS, REGIONS, normalize_country_key
 from jbi100_app.plots.map import build_map_figure
 from jbi100_app.data.geo_utils import geo_mask
+from jbi100_app.plots.common import _pretty_attr_label
 
 
 # ============================================================
@@ -120,7 +121,6 @@ def update_map(metric, geo_scale, geo_scope, selection_store, brush_data):
 
     in_mask = base_mask & scope_mask
 
-    # ✅ Robust extraction (keys -> df Country names)
     brush_countries = _brush_countries_for_df(brush_data, plot_df)
 
     return build_map_figure(
@@ -131,3 +131,27 @@ def update_map(metric, geo_scale, geo_scope, selection_store, brush_data):
         selection_store or [],
         brush_countries,
     )
+
+# @callback(
+#     Output("vis-metric", "options"),
+#     Output("vis-metric", "value"),
+#     Input("vis-selected-attributes", "data"),
+#     State("vis-metric", "value"),
+# )
+# def refresh_map_metric_from_selected_attrs(selected_attrs, current_metric):
+#     if not isinstance(selected_attrs, list) or not selected_attrs:
+#         # No attributes selected → disable map metric
+#         return [], None
+#
+#     attrs = [str(a) for a in selected_attrs if a]
+#
+#     options = [
+#         {"label": _pretty_attr_label(a), "value": a}
+#         for a in attrs
+#     ]
+#
+#     # Preserve current selection if still valid
+#     if current_metric not in attrs:
+#         current_metric = attrs[0]
+#
+#     return options, current_metric
