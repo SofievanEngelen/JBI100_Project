@@ -4,9 +4,10 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-from jbi100_app.plots.common import coerce_numeric, pick_pcp_dims, pretty_metric
+from jbi100_app.plots.common import coerce_numeric, pick_pcp_dims
 from jbi100_app.state.selection_store import SelectedCountry
 from jbi100_app.data.constants import BASE_GREY, FADED_GREY
+from jbi100_app.data.attributes import ATTRIBUTE_METADATA, attribute_display_label, all_numeric_attributes
 
 
 def _build_discrete_colorscale(code_to_colour: dict[int, str], cmax: int) -> list[list[object]]:
@@ -49,7 +50,7 @@ def build_pcp_figure(
     if dims_override:
         dims = [d for d in dims_override if d in df.columns][:max_dims]
     else:
-        dims = pick_pcp_dims(df, ui_category, max_dims=max_dims)
+        dims = pick_pcp_dims(df, max_dims=max_dims)
 
     MARGIN = dict(l=60, r=60, t=50, b=25)
 
@@ -126,9 +127,30 @@ def build_pcp_figure(
             return fig
         work = work[work["Country"].astype(str).isin(keep)].copy()
 
+    dimensions = []
 
+    for c in dims:
+        if c in ATTRIBUTE_METADATA.index:
+            row = ATTRIBUTE_METADATA.loc[c]
+            name = row["Display_name"]
+            unit = row["Unit"]
+        else:
+            name = c
+            unit = ""
 
-    dimensions = [{"label": pretty_metric(c), "values": work[c].to_numpy()} for c in dims]
+        label = name
+        if unit:
+            label = f"{name}<br>({unit})"
+
+        dimensions.append(
+            {
+                "label": label,
+                "values": work[c].to_numpy(),
+                "range": [0,1],
+                "tickvals": [0, 0.2, 0.4, 0.6, 0.8, 1.0],
+                "ticktext": ["0", "0.2", "0.4", "0.6", "0.8", "1"],
+            }
+        )
 
     # ============================================================
     # MODE A: Color by first axis (single trace, stable)
@@ -160,7 +182,7 @@ def build_pcp_figure(
                         cmin=sentinel,
                         cmax=1.0,
                         showscale=True,
-                        colorbar=dict(title=pretty_metric(first_dim)),
+                        colorbar=dict(title=attribute_display_label(first_dim, include_category=False)),
                     ),
                     dimensions=dimensions,
                     labelfont=dict(size=12),

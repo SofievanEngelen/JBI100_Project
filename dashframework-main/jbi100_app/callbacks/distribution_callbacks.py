@@ -3,13 +3,13 @@ from __future__ import annotations
 from dash import Input, Output, State, callback, no_update
 import pandas as pd
 
-from jbi100_app.data.data_loader import DATA_INFO, CONTINENTS, REGIONS
-from jbi100_app.data.geo_utils import geo_mask
-from jbi100_app.plots.common import all_numeric_metrics, pretty_metric
+from jbi100_app.data.data_loader import DATA_INFO
+from jbi100_app.data.geo_utils import geo_mask, CONTINENTS, REGIONS
 from jbi100_app.plots.histogram import build_histogram_figure
 from jbi100_app.plots.violin import build_violin_figure
 from jbi100_app.state.selection_store import normalize_selection_store, names_from_store
 from jbi100_app.state.filters import apply_temp_region_filter
+from jbi100_app.data.attributes import all_numeric_attributes, attribute_display_label
 
 
 def _safe_df() -> pd.DataFrame:
@@ -59,9 +59,9 @@ def _scope_mask(df: pd.DataFrame, geo_scale: str, geo_scope) -> pd.Series:
 )
 def refresh_single_attr_options(_geo_scale, cur_hist, cur_violin):
     df = _safe_df()
-    cols = all_numeric_metrics(df)
+    cols = all_numeric_attributes(df)
 
-    opts = [{"label": pretty_metric(c), "value": c} for c in cols]
+    opts = [{"label": attribute_display_label(c), "value": c} for c in cols]
     if not cols:
         return [], None, [], None
 

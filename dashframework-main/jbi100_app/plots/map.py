@@ -4,8 +4,9 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-from jbi100_app.data.constants import COLOR_SCALE, SMALL_COUNTRY_AREA_KM2
-from jbi100_app.plots.common import coerce_numeric, pretty_metric
+from jbi100_app.plots.common import coerce_numeric
+from jbi100_app.data.constants import COLOR_SCALE, DIVERGING_COLOR_SCALE, SMALL_COUNTRY_AREA_KM2
+from jbi100_app.data.attributes import attribute_display_label, is_diverging_attribute
 from jbi100_app.state.selection_store import SelectedCountry
 
 _TRANSPARENT = "rgba(0,0,0,0)"
@@ -16,40 +17,51 @@ def _key(name: object) -> str:
         return ""
     return name.strip().upper()
 
-
 def build_map_figure(
     df: pd.DataFrame,
     metric: str,
     geo_scale: str,
     in_mask: pd.Series | None,
     selection_store: list[SelectedCountry],
-    brush_country_keys: list[str] | None,
+    brush_country_keys: list[str] | None = None,
 ) -> go.Figure:
+
     fig = go.Figure()
 
+    # ------------------------------------------------------------
+    # Safety
+    # ------------------------------------------------------------
     if df is None or df.empty or not metric or metric not in df.columns:
-        fig.update_layout(template="plotly_white", margin=dict(l=0, r=0, t=0, b=0))
+        fig.update_layout(
+            template="plotly_white",
+            margin=dict(l=0, r=0, t=0, b=0),
+        )
         return fig
 
     plot_df = df.copy()
     plot_df["_z"] = coerce_numeric(plot_df[metric])
 
+    if in_mask is None or len(in_mask) != len(plot_df):
+        in_mask = pd.Series(True, index=plot_df.index)
+
     brush_set = set(brush_country_keys or [])
 
-    # ------------------------------------------------------------------
-    # Colour scale logic (NEW)
-    # ------------------------------------------------------------------
-    finite = plot_df["_z"][np.isfinite(plot_df["_z"])]
-    if finite.empty:
-        vmin = vmax = 0.0
-    else:
-        vmin = float(finite.min())
-        vmax = float(finite.max())
+    # ------------------------------------------------------------
+    # Colour scale logic (metadata-driven)
+    # ------------------------------------------------------------
+    z_visible = plot_df.loc[in_mask, "_z"]
+    z_visible = z_visible[np.isfinite(z_visible)]
 
-    use_diverging = (vmin < 0) and (vmax > 0)
+    use_diverging = is_diverging_attribute(metric)
 
     if use_diverging:
-        vmax_abs = max(abs(vmin), abs(vmax))
+        if z_visible.empty:
+            vmax_abs = 1.0
+        else:
+            vmax_abs = float(np.nanmax(np.abs(z_visible)))
+            if not np.isfinite(vmax_abs) or vmax_abs == 0:
+                vmax_abs = 1.0
+
         coloraxis = dict(
             colorscale="RdBu",
             cmin=-vmax_abs,
@@ -59,13 +71,27 @@ def build_map_figure(
                 orientation="h",
                 x=0.5,
                 xanchor="center",
-                y=0.96,
+                y=1.02,
                 yanchor="bottom",
                 len=0.7,
                 thickness=14,
             ),
         )
+
     else:
+        if z_visible.empty:
+            vmin, vmax = 0.0, 1.0
+        elif z_visible.nunique() == 1:
+            v = float(z_visible.iloc[0])
+            vmin, vmax = v - 1.0, v + 1.0
+        else:
+            vmin, vmax = np.percentile(z_visible, [2, 98])
+            vmin, vmax = float(vmin), float(vmax)
+
+            if not np.isfinite(vmin) or not np.isfinite(vmax) or vmin >= vmax:
+                vmin = float(z_visible.min())
+                vmax = float(z_visible.max())
+
         coloraxis = dict(
             colorscale=COLOR_SCALE,
             cmin=vmin,
@@ -74,16 +100,16 @@ def build_map_figure(
                 orientation="h",
                 x=0.5,
                 xanchor="center",
-                y=0.96,
+                y=1.02,
                 yanchor="bottom",
                 len=0.7,
                 thickness=14,
             ),
         )
 
-    # ------------------------------------------------------------------
-    # 1) Base choropleth: ALL countries with metric scale
-    # ------------------------------------------------------------------
+    # ------------------------------------------------------------
+    # 1) Base choropleth (owns colour scale)
+    # ------------------------------------------------------------
     fig.add_trace(
         go.Choropleth(
             locations=plot_df["_PLOTLY_NAME"],
@@ -92,25 +118,19 @@ def build_map_figure(
             coloraxis="coloraxis",
             marker_line_color="rgba(255,255,255,0.35)",
             marker_line_width=0.5,
+            text=plot_df["Country"],
             hovertemplate=(
                 "<b>%{text}</b><br>"
-                f"{pretty_metric(metric)}: %{{z}}<extra></extra>"
+                + attribute_display_label(metric)
+                + ": %{z:,.3g}<extra></extra>"
             ),
-            text=plot_df["Country"],
         )
     )
 
-    # ------------------------------------------------------------------
-    # 2) Out-of-scope countries: white-out (still visible)
-    #    - out of continent/region scope OR outside PCP/scatter filter
-    # ------------------------------------------------------------------
-    out_mask = pd.Series(False, index=plot_df.index)
-
-    if in_mask is not None:
-        out_mask |= ~in_mask
-
-    if brush_set:
-        out_mask |= ~plot_df["_CountryKey"].isin(brush_set)
+    # ------------------------------------------------------------
+    # 2) Out-of-scope / filtered countries → white-out
+    # ------------------------------------------------------------
+    out_mask = ~in_mask
 
     if out_mask.any():
         fig.add_trace(
@@ -126,53 +146,56 @@ def build_map_figure(
             )
         )
 
-    # ------------------------------------------------------------------
-    # 3) Selected countries: BORDER ONLY (transparent fill overlay)
-    # ------------------------------------------------------------------
+    # ------------------------------------------------------------
+    # 3) Selected countries → outline overlay
+    # ------------------------------------------------------------
     for item in selection_store:
         cname = item.get("country_name")
         if not cname:
             continue
 
         ck = _key(cname)
-
-        # determine "in scope" for choosing strong vs light border colour
-        in_geo = True
-        if in_mask is not None:
-            rowmask = plot_df["_CountryKey"] == ck
-            if rowmask.any():
-                in_geo = bool(in_mask.loc[rowmask].iloc[0])
-
-        in_filter = (not brush_set) or (ck in brush_set)
-        in_scope = in_geo and in_filter
-
-        outline_color = item["colour_rgb"] if in_scope else item["colour_rgb_light"]
-
         row = plot_df.loc[plot_df["_CountryKey"] == ck]
         if row.empty:
             continue
 
-        plotly_name = row.iloc[0].get("_PLOTLY_NAME")
-        iso3 = row.iloc[0].get("_ISO3")
-        area = pd.to_numeric(row.iloc[0].get("land_area_km2"), errors="coerce")
+        row = row.iloc[0]
+        plotly_name = row.get("_PLOTLY_NAME")
+        iso3 = row.get("_ISO3")
+
+        in_geo = True
+        if in_mask is not None:
+            m = plot_df["_CountryKey"] == ck
+            if m.any():
+                in_geo = bool(in_mask.loc[m].iloc[0])
+
+        in_filter = (not brush_set) or (ck in brush_set)
+        in_scope = in_geo and in_filter
+
+        outline_color = (
+            item["colour_rgb"]
+            if in_scope
+            else item["colour_rgb_light"]
+        )
+
+        area = pd.to_numeric(row.get("land_area_km2"), errors="coerce")
         is_small = bool(np.isfinite(area) and area < SMALL_COUNTRY_AREA_KM2)
 
-        if is_small:
-            if isinstance(iso3, str) and iso3:
-                fig.add_trace(
-                    go.Scattergeo(
-                        locations=[iso3],
-                        locationmode="ISO-3",
-                        mode="markers",
-                        marker=dict(
-                            size=12,
-                            color=_TRANSPARENT,
-                            line=dict(width=2.2, color=outline_color),
-                        ),
-                        showlegend=False,
-                        hoverinfo="skip",
-                    )
+        if is_small and isinstance(iso3, str):
+            fig.add_trace(
+                go.Scattergeo(
+                    locations=[iso3],
+                    locationmode="ISO-3",
+                    mode="markers",
+                    marker=dict(
+                        size=12,
+                        color=_TRANSPARENT,
+                        line=dict(width=2.2, color=outline_color),
+                    ),
+                    hoverinfo="skip",
+                    showlegend=False,
                 )
+            )
         else:
             fig.add_trace(
                 go.Choropleth(
@@ -187,14 +210,17 @@ def build_map_figure(
                 )
             )
 
-    # ------------------------------------------------------------------
+    # ------------------------------------------------------------
     # Layout
-    # ------------------------------------------------------------------
+    # ------------------------------------------------------------
     fig.update_layout(
         template="plotly_white",
-        margin=dict(l=0, r=0, t=0, b=0),
+        margin=dict(l=0, r=0, t=30, b=0),
         geo=dict(showframe=False, showcoastlines=False),
         coloraxis=coloraxis,
     )
 
     return fig
+
+
+

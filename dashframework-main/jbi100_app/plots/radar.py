@@ -5,8 +5,9 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-from jbi100_app.plots.common import pick_pcp_dims, pretty_metric
+from jbi100_app.plots.common import pick_pcp_dims
 from jbi100_app.state.selection_store import SelectedCountry
+from jbi100_app.data.attributes import attribute_display_label
 
 
 def _rgb_to_rgba(rgb: str, a: float) -> str:
@@ -69,7 +70,7 @@ def build_radar_figure(
     if dims_override:
         dims = [d for d in dims_override if d in df.columns][:8]
     else:
-        dims = pick_pcp_dims(df, ui_category, max_dims=8)
+        dims = pick_pcp_dims(df, max_dims=8)
 
     # If user is explicitly controlling dims via sidebar, warn when too few
     if dims_override is not None and len(dims) < 3:
@@ -128,7 +129,7 @@ def build_radar_figure(
     def norm(v, d):
         return (float(v) - mins[d]) / (maxs[d] - mins[d])
 
-    theta = [_wrap_label(pretty_metric(d), max_chars=14) for d in dims]
+    theta = [_wrap_label(attribute_display_label(d), max_chars=14) for d in dims]
     theta_closed = theta + [theta[0]]
 
     fig = go.Figure()

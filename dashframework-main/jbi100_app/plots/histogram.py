@@ -11,8 +11,9 @@ from jbi100_app.data.constants import (
     HIST_OUT_SCOPE_RGBA,
     KDE_IN_SCOPE_RGBA,
 )
-from jbi100_app.plots.common import coerce_numeric, kde_counts, prepare_hist_bins, pretty_metric
+from jbi100_app.plots.common import coerce_numeric, kde_counts, prepare_hist_bins
 from jbi100_app.state.selection_store import SelectedCountry
+from jbi100_app.data.attributes import attribute_display_label
 
 
 def _bin_edges(x_min: float, x_max: float, nbins: int) -> np.ndarray:
@@ -184,7 +185,7 @@ def build_histogram_figure(
         margin=dict(l=0, r=0, t=0, b=0),
         title=None,
         barmode="overlay",
-        xaxis=dict(title=pretty_metric(metric), range=[x_min, x_max]),
+        xaxis=dict(title=attribute_display_label(metric), range=[x_min, x_max]),
         yaxis=dict(title="Count"),
         showlegend=False,
         clickmode="event",

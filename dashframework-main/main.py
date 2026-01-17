@@ -3,7 +3,6 @@ import dash
 from dash import Dash, html, dcc, Input, Output
 import dash_bootstrap_components as dbc
 
-from jbi100_app.views.landing import layout as landing_layout
 from jbi100_app.views.layout import layout as vis_layout
 from jbi100_app.views.menu import layout as menu_layout
 
@@ -15,6 +14,7 @@ from jbi100_app.callbacks import scatter_callbacks
 from jbi100_app.callbacks import distribution_callbacks
 from jbi100_app.callbacks import pcp_callbacks
 from jbi100_app.callbacks import radar_callbacks
+from jbi100_app.callbacks import sidebar_callbacks
 
 app = Dash(__name__,
     external_stylesheets=[dbc.themes.BOOTSTRAP],
@@ -33,7 +33,6 @@ app.validation_layout = html.Div(
     [
         dcc.Location(id="url"),
         menu_layout(),
-        landing_layout() if callable(landing_layout) else landing_layout,
         vis_layout() if callable(vis_layout) else vis_layout,
     ]
 )

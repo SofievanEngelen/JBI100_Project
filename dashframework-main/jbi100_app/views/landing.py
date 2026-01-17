@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from dash import dcc, html
 
-from jbi100_app.data.category_mapping import UI_CATEGORIES, UI_CATEGORY_LABELS
 from jbi100_app.data.data_loader import ALL_COUNTRIES, DATA_INFO
 
 

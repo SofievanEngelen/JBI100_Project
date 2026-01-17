@@ -3,10 +3,9 @@ from __future__ import annotations
 import pandas as pd
 from dash import Input, Output, callback, State
 
-from jbi100_app.data.data_loader import DATA_INFO, CONTINENTS, REGIONS, normalize_country_key
+from jbi100_app.data.data_loader import DATA_INFO
 from jbi100_app.plots.map import build_map_figure
-from jbi100_app.data.geo_utils import geo_mask
-from jbi100_app.plots.common import _pretty_attr_label
+from jbi100_app.data.geo_utils import geo_mask, CONTINENTS, REGIONS, normalise_country_key
 
 
 # ============================================================
@@ -68,7 +67,7 @@ def _brush_countries_for_df(brush_data, df: pd.DataFrame) -> list[str]:
     Uses _CountryKey matching so case/spacing differences don't break filtering.
     """
     raw = _raw_countries_from_brush_store(brush_data)
-    keys = {normalize_country_key(x) for x in raw}
+    keys = {normalise_country_key(x) for x in raw}
     keys.discard("")
 
     if not keys or df is None or df.empty or "_CountryKey" not in df.columns:
@@ -96,7 +95,6 @@ def update_map(metric, geo_scale, geo_scope, selection_store, brush_data):
             geo_scale,
             pd.Series(dtype=bool),
             selection_store or [],
-            [],
         )
 
     plot_df = DATA_INFO.copy()
@@ -123,35 +121,14 @@ def update_map(metric, geo_scale, geo_scope, selection_store, brush_data):
 
     brush_countries = _brush_countries_for_df(brush_data, plot_df)
 
+    if brush_countries:
+        brush_keys = {normalise_country_key(c) for c in brush_countries}
+        in_mask = in_mask & plot_df["_CountryKey"].isin(brush_keys)
+
     return build_map_figure(
         plot_df,
         metric,
         geo_scale,
         in_mask,
         selection_store or [],
-        brush_countries,
     )
-
-# @callback(
-#     Output("vis-metric", "options"),
-#     Output("vis-metric", "value"),
-#     Input("vis-selected-attributes", "data"),
-#     State("vis-metric", "value"),
-# )
-# def refresh_map_metric_from_selected_attrs(selected_attrs, current_metric):
-#     if not isinstance(selected_attrs, list) or not selected_attrs:
-#         # No attributes selected → disable map metric
-#         return [], None
-#
-#     attrs = [str(a) for a in selected_attrs if a]
-#
-#     options = [
-#         {"label": _pretty_attr_label(a), "value": a}
-#         for a in attrs
-#     ]
-#
-#     # Preserve current selection if still valid
-#     if current_metric not in attrs:
-#         current_metric = attrs[0]
-#
-#     return options, current_metric

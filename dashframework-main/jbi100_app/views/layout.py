@@ -4,11 +4,7 @@ from dash import html, dcc
 import dash_bootstrap_components as dbc
 
 from jbi100_app.data.data_loader import DATA_INFO, ALL_COUNTRIES
-from jbi100_app.data.category_mapping import UI_CATEGORIES, UI_CATEGORY_LABELS
-from jbi100_app.plots.common import _pretty_attr_label, _label_map
-
-
-
+from jbi100_app.data.attributes import attribute_display_label, all_numeric_attributes
 
 
 def _numeric_attribute_values() -> list[str]:
@@ -73,19 +69,14 @@ def _plot_wrap(children, style_extra=None):
         style.update(style_extra)
     return html.Div(style=style, children=children)
 
+_ALL_ATTRS = all_numeric_attributes(DATA_INFO)
 
-
-
-
-_ALL_ATTRS = _numeric_attribute_values()
-
-_LABELS = _label_map()
-
-_ATTR_OPTIONS = [{"label": _pretty_attr_label(a), "value": a} for a in _ALL_ATTRS]
-
-_CATEGORY_OPTIONS = [
-    {"label": _LABELS.get(k, k), "value": k}
-    for k in (UI_CATEGORIES.keys() if isinstance(UI_CATEGORIES, dict) else [])
+options = [
+    {"label": attribute_display_label(a), "value": a}
+    for a in sorted(
+        _ALL_ATTRS,
+        key=lambda a: attribute_display_label(a).lower(),
+    )
 ]
 
 PLOT_CONFIG = {"displayModeBar": False, "responsive": True}
@@ -169,22 +160,49 @@ layout = html.Div(
                                 ),
                             ],
                         ),
-                        html.Div("Attributes (max 8)", style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"}),
-                        dcc.Dropdown(
-                            id="vis-attr-pool",
-                            options=_ATTR_OPTIONS,
-                            value=[],
-                            multi=True,
-                            placeholder="Select attributes",
-                            style={"marginBottom": "6px"},
-                        ),
                         html.Div(id="vis-warnings", style={"fontSize": "11px", "color": "#b91c1c"}),
                         html.Button("Clear filter", id="vis-clear-all", n_clicks=0, style={"width": "100%", "marginBottom": "6px"}),
                         html.Hr(style={"margin": "8px 0"}),
-                        html.Div("Population", style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"}),
-                        html.Div(id="vis-population-text", style={"fontSize": "11px", "color": "#516074"}),
-                        html.Div("Selected", style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"}),
-                        html.Div(id="vis-selected-text", style={"fontSize": "11px", "color": "#516074"}),
+                        html.Div(
+                            "Understand Attributes",
+                            style={
+                                "fontSize": "12px",
+                                "fontWeight": "800",
+                                "color": "#243b53",
+                                "marginBottom": "6px",
+                            },
+                        ),
+
+                        dcc.Dropdown(
+                            id="attr-lookup-dd",
+                            options=[
+                                {
+                                    "label": attribute_display_label(a),
+                                    "value": a,
+                                }
+                                for a in sorted(
+                                    all_numeric_attributes(DATA_INFO),
+                                    key=lambda a: attribute_display_label(a).lower(),
+                                )
+                            ],
+                            placeholder="Search attribute",
+                            clearable=True,
+                        ),
+
+                        html.Div(
+                            id="attr-lookup-panel",
+                            style={
+                                "marginTop": "10px",
+                                "padding": "10px",
+                                "border": "1px solid rgba(148,163,184,0.35)",
+                                "borderRadius": "10px",
+                                "background": "#fbfcff",
+                                "fontSize": "12px",
+                                "color": "#1f2937",
+                                "display": "none",
+                            },
+                        ),
+
 
                         # stores
                         dcc.Store(id="pcp-brush-store", data=None),
@@ -201,7 +219,7 @@ layout = html.Div(
                     style={
                         "height": "100%",
                         "display": "grid",
-                        "gridTemplateRows": "50% 43%",
+                        "gridTemplateRows": "50% 50%",
                         "gap": "12px",
                         "minHeight": 0,
                     },
@@ -223,7 +241,7 @@ layout = html.Div(
                                                 html.Div("Map", style={"fontSize": "18px", "fontWeight": "900", "color": "#3a3a3a"}),
                                                 dcc.Dropdown(
                                                     id="vis-metric",
-                                                    options=_ATTR_OPTIONS,
+                                                    options=options,
                                                     value=_ALL_ATTRS[0] if _ALL_ATTRS else None,
                                                     clearable=False,
                                                     placeholder="Select Attribute",
@@ -357,39 +375,84 @@ layout = html.Div(
                         # Bottom row: PCP
                         _panel(
                             children=[
+                                dcc.ConfirmDialog(
+                                    id="pcp-max-dims-dialog",
+                                    message="You can select a maximum of 8 attributes for the Parallel Coordinates Plot.",
+                                ),
                                 html.Div(
-                                    style={"display": "flex",
-                                           "justifyContent": "space-between",
-                                           "alignItems": "center",
-                                           "gap": "14px"},
+                                    style={
+                                        "display": "grid",
+                                        "gridTemplateColumns": "1fr auto",
+                                        "gridTemplateRows": "auto auto",
+                                        "columnGap": "16px",
+                                        "rowGap": "6px",
+                                        "alignItems": "center",
+                                    },
                                     children=[
-                                        html.Div("Parallel Coordinates", style={"fontSize": "18px", "fontWeight": "900", "color": "#3a3a3a"}),
+                                        # ── Title (top-left)
                                         html.Div(
-                                            style={"display": "flex", "alignItems": "center", "gap": "14px"},
+                                            "Parallel Coordinates",
+                                            style={
+                                                "fontSize": "18px",
+                                                "fontWeight": "900",
+                                                "color": "#3a3a3a",
+                                            },
+                                        ),
+
+                                        # ── Dropdown (right, spans both rows)
+                                        html.Div(
+                                            dcc.Dropdown(
+                                                id="pcp-attr-dd",
+                                                options=[
+                                                    {"label": attribute_display_label(a, include_category=False,
+                                                                                      include_unit=False), "value": a}
+                                                    for a in sorted(
+                                                        all_numeric_attributes(DATA_INFO),
+                                                        key=lambda a: attribute_display_label(a).lower(),
+                                                    )
+                                                ],
+                                                value=[],  # filled by callback
+                                                multi=True,
+                                                placeholder="PCP attributes (max 8)",
+                                                style={
+                                                    "minWidth": "520px",
+                                                    "maxWidth": "800px",
+                                                },
+                                            ),
+                                        ),
+
+                                        # ── Toggles (bottom-left)
+                                        html.Div(
+                                            style={
+                                                "display": "flex",
+                                                "alignItems": "center",
+                                                "gap": "18px",
+                                                "fontSize": "12px",
+                                            },
                                             children=[
                                                 dcc.Checklist(
                                                     id="vis-pcp-color-first-axis",
                                                     options=[{"label": "Colour by 1st axis", "value": "on"}],
                                                     value=[],
-                                                    style={"fontSize": "12px"},
                                                     inputStyle={"marginRight": "6px"},
                                                 ),
                                                 dcc.Checklist(
                                                     id="vis-pcp-selected-only",
                                                     options=[{"label": "Selected only", "value": "on"}],
                                                     value=[],
-                                                    style={"fontSize": "12px"},
                                                     inputStyle={"marginRight": "6px"},
                                                 ),
                                             ],
                                         ),
                                     ],
                                 ),
+
                                 _plot_wrap(
                                     dcc.Graph(id="vis-pcp",
                                               config=PLOT_CONFIG,
                                               style={"height": "100%", "width": "100%"})
                                 ),
+
                             ],
                         ),
                     ],
@@ -404,30 +467,89 @@ layout = html.Div(
             backdrop=True,
             className="onboarding-modal",
             children=[
-                dbc.ModalHeader(dbc.ModalTitle("Welcome to the JBI100 Explorer")),
-                dbc.ModalBody([
-                    html.P("Before we start, choose the countries and attributes you want to explore."),
+                dbc.ModalHeader(
+                    dbc.ModalTitle("Welcome to the MUN Digital Debate Coach")
+                ),
 
-                    html.Label("Select countries"),
-                    dcc.Dropdown(
-                        id="onboarding-country",
-                        options=[{"label": c, "value": c} for c in sorted(ALL_COUNTRIES)],
-                        multi=True,
-                    ),
+                dbc.ModalBody(
+                    children=[
+                        html.P(
+                            "This tool serves as a MUN digital debate coach. "
+                            "It helps you turn scattered country indicators into "
+                            "comparable, citable, argument-ready evidence—directly "
+                            "supporting your position paper, speeches, and negotiation strategy.",
+                            style={"marginBottom": "14px"},
+                        ),
 
-                    html.Br(),
+                        html.Div(
+                            "What you can do with it",
+                            style={
+                                "fontWeight": "800",
+                                "marginTop": "12px",
+                                "marginBottom": "6px",
+                            },
+                        ),
 
-                    html.Label("Select attributes"),
-                    dcc.Dropdown(
-                        id="onboarding-attr",
-                        options=_ATTR_OPTIONS,
-                        multi=True,
-                    ),
-                ]),
+                        html.Ul(
+                            children=[
+                                html.Li(
+                                    "Sketch a country profile: Quickly understand your assigned "
+                                    "country’s status on key indicators, and where it stands globally "
+                                    "or within its region."
+                                ),
+                                html.Li(
+                                    "Build comparative arguments: Compare countries within the same "
+                                    "region or continent and generate claims like “above / below the "
+                                    "regional average.”"
+                                ),
+                                html.Li(
+                                    "Stress-test your stance: View multiple indicators together to "
+                                    "identify strengths, weaknesses, and trade-offs—so you avoid "
+                                    "making claims that clearly conflict with data."
+                                ),
+                                html.Li(
+                                    "Identify allies and opponents: Use multi-indicator similarity to "
+                                    "spot likely allies and key counterparts to challenge, supporting "
+                                    "coalition-building and negotiation."
+                                ),
+                                html.Li(
+                                    "Spot data vulnerabilities: Quickly detect unusual or inconsistent "
+                                    "indicators in other countries for questioning and rebuttal."
+                                ),
+                            ],
+                            style={"marginBottom": "18px"},
+                        ),
+
+                        html.Hr(),
+
+                        html.Label(
+                            "Select your host country",
+                            style={
+                                "fontWeight": "800",
+                                "marginTop": "10px",
+                                "marginBottom": "6px",
+                            },
+                        ),
+
+                        dcc.Dropdown(
+                            id="onboarding-country",
+                            options=[{"label": c, "value": c} for c in sorted(ALL_COUNTRIES)],
+                            value=None,
+                            clearable=False,
+                            placeholder="Choose your assigned country",
+                        ),
+                    ]
+                ),
+
                 dbc.ModalFooter(
-                    dbc.Button("Start exploring", id="onboarding-confirm", color="primary")
+                    dbc.Button(
+                        "Start exploring",
+                        id="onboarding-confirm",
+                        color="primary",
+                        disabled=True,  # enable via callback once country is selected
+                    )
                 ),
             ],
-        ),
+        )
     ],
 )

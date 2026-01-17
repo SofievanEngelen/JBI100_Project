@@ -65,6 +65,7 @@ SMALL_COUNTRY_AREA_KM2 = 1500  # tweak if you like
 # Plotly choropleth colourscale (your app already expects this name)
 # Keep your current scale here if you had one; this is a safe default.
 COLOR_SCALE = "PuBu"
+DIVERGING_COLOR_SCALE = "PuBuGr"
 
 # Histogram styling (only used for histogram internals)
 HIST_IN_SCOPE_RGBA = BASE_GREY

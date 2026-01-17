@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from dash import Input, Output, State, callback, no_update, html
 
-from jbi100_app.data.category_mapping import UI_CATEGORIES
-
 
 def _as_list(x):
     if x is None:
@@ -131,22 +129,26 @@ from dash import Input, Output, State, callback, no_update
 @callback(
     Output("onboarding-modal", "is_open"),
     Output("vis-country", "value", allow_duplicate=True),
-    Output("vis-attr-pool", "value", allow_duplicate=True),
     Input("onboarding-confirm", "n_clicks"),
     State("onboarding-country", "value"),
-    State("onboarding-attr", "value"),
     prevent_initial_call=True,
 )
-def apply_onboarding_selection(n_clicks, countries, attrs):
+def apply_onboarding_selection(n_clicks, countries):
     """
     Push onboarding selections directly into the sidebar.
     """
 
     if not n_clicks:
-        return no_update, no_update, no_update
+        return no_update, no_update
 
     return (
         False,                 # close modal
         countries or [],       # populate country sidebar
-        attrs or [],           # populate attribute sidebar
     )
+
+@callback(
+    Output("onboarding-confirm", "disabled"),
+    Input("onboarding-country", "value"),
+)
+def enable_start_button(country):
+    return country is None

@@ -3,7 +3,8 @@ from __future__ import annotations
 import numpy as np
 from dash import Input, Output, State, callback, html, no_update
 
-from jbi100_app.data.data_loader import DATA_INFO, ALL_COUNTRIES, UN_COUNTRIES
+from jbi100_app.data.data_loader import DATA_INFO, ALL_COUNTRIES
+from jbi100_app.data.geo_utils import UN_COUNTRIES, normalise_country_key, normalise_country_display
 from jbi100_app.state.selection_store import (
     merge_selection_store,
     names_from_store,
@@ -169,10 +170,10 @@ def map_click_to_selection(clickData, current_sel_store):
 # Attribute selection cap at 8 + popup
 # ============================================================
 @callback(
-    Output("vis-attr-pool", "value"),
+    Output("vis-selected-attributes", "value"),
     Output("vis-attr-limit-dialog", "message"),
     Output("vis-attr-limit-dialog", "displayed"),
-    Input("vis-attr-pool", "value"),
+    Input("vis-selected-attributes", "value"),
     prevent_initial_call=True,
 )
 def cap_attr_pool_to_8(selected):
@@ -191,7 +192,7 @@ def cap_attr_pool_to_8(selected):
 
 @callback(
     Output("vis-selected-attributes", "data"),
-    Input("vis-attr-pool", "value"),
+    Input("vis-selected-attributes", "value"),
 )
 def update_selected_attributes(attr_pool_value):
     """
@@ -202,7 +203,6 @@ def update_selected_attributes(attr_pool_value):
     if not attr_pool_value:
         return []
 
-    # attr-pool should already be multi-select,
     # but normalize defensively
     if isinstance(attr_pool_value, list):
         return attr_pool_value

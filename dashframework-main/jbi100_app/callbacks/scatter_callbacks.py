@@ -3,10 +3,13 @@ from __future__ import annotations
 from dash import Input, Output, State, callback, no_update
 import pandas as pd
 
-from jbi100_app.data.data_loader import DATA_INFO, normalize_country_key, CONTINENTS, REGIONS
-from jbi100_app.data.geo_utils import geo_mask
-from jbi100_app.plots.common import all_numeric_metrics, _pretty_attr_label
+from jbi100_app.data.data_loader import DATA_INFO
+from jbi100_app.data.geo_utils import geo_mask, CONTINENTS, REGIONS,normalise_country_key
 from jbi100_app.plots.scatter import build_scatter_figure
+from jbi100_app.data.attributes import (
+    all_numeric_attributes,
+    attribute_display_label
+)
 
 
 # ---------------------------------------------------------------------
@@ -33,7 +36,7 @@ def _raw_countries_from_brush_store(brush_data) -> list[str]:
 
 def _brush_countries_for_df(brush_data, df: pd.DataFrame) -> list[str]:
     raw = _raw_countries_from_brush_store(brush_data)
-    keys = {normalize_country_key(x) for x in raw}
+    keys = {normalise_country_key(x) for x in raw}
     keys.discard("")
     if not keys or df is None or df.empty or "_CountryKey" not in df.columns:
         return []
@@ -102,27 +105,27 @@ def _scatter_scope_mask(df: pd.DataFrame, geo_scale: str, geo_scope) -> pd.Serie
     Output("vis-scatter-y", "options"),
     Output("vis-scatter-x", "value"),
     Output("vis-scatter-y", "value"),
-    Input("vis-selected-attributes", "data"),
+    Input("vis-geo-scale", "value"),
     State("vis-scatter-x", "value"),
     State("vis-scatter-y", "value"),
 )
-def refresh_scatter_from_selected_attrs(selected_attrs, cur_x, cur_y):
-    if not isinstance(selected_attrs, list) or len(selected_attrs) < 2:
-        # Not enough attributes to form a scatter plot
-        return [], [], None, None
-
-    attrs = [str(a) for a in selected_attrs if a]
+def refresh_scatter_attr_options(_geo_scale, cur_x, cur_y):
+    df = _safe_df()
+    cols = all_numeric_attributes(df)
 
     options = [
-        {"label": _pretty_attr_label(a), "value": a}
-        for a in attrs
+        {"label": attribute_display_label(c, include_category=False), "value": c}
+        for c in cols
     ]
 
-    # Preserve existing selections if still valid
-    if cur_x not in attrs:
-        cur_x = attrs[0]
-    if cur_y not in attrs or cur_y == cur_x:
-        cur_y = attrs[1] if len(attrs) > 1 else None
+    if len(cols) < 2:
+        return options, options, None, None
+
+        # keep existing selections if possible
+    if cur_x not in cols:
+        cur_x = cols[0]
+    if cur_y not in cols or cur_y == cur_x:
+        cur_y = cols[1]
 
     return options, options, cur_x, cur_y
 

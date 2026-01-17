@@ -2,18 +2,20 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from dash import Input, Output, State, callback, no_update, ctx
+from dash import Input, Output, State, callback, no_update, ctx, ALL
 
-from jbi100_app.data.data_loader import DATA_INFO, CONTINENTS, REGIONS
-from jbi100_app.data.geo_utils import geo_mask
-from jbi100_app.plots.common import coerce_numeric, pick_pcp_dims, pretty_metric
+from jbi100_app.data.data_loader import DATA_INFO
+from jbi100_app.data.geo_utils import geo_mask, CONTINENTS, REGIONS
+from jbi100_app.plots.common import coerce_numeric, pick_pcp_dims
 from jbi100_app.plots.pcp import build_pcp_figure
 from jbi100_app.state.filters import (
     parse_parcoords_constraintrange_patch,
     countries_from_parcoords_constraints,
 )
 from jbi100_app.state.selection_store import normalize_selection_store
+from jbi100_app.data.attributes import attribute_display_label
 
+MAX_PCP_DIMS = 8
 
 def _safe_df() -> pd.DataFrame:
     if DATA_INFO is None or getattr(DATA_INFO, "empty", True):
@@ -24,7 +26,7 @@ def _safe_df() -> pd.DataFrame:
 def _choose_dims(df: pd.DataFrame, dims_override: list[str] | None, max_dims: int = 8) -> list[str]:
     if isinstance(dims_override, list) and len(dims_override) >= 2:
         return [str(d) for d in dims_override if d in df.columns][:max_dims]
-    return pick_pcp_dims(df, ui_category=None, max_dims=max_dims)
+    return pick_pcp_dims(df, max_dims=max_dims)
 
 
 def _pcp_normalized_work(df: pd.DataFrame, dims: list[str]) -> pd.DataFrame:
@@ -105,7 +107,7 @@ def _dims_from_current_figure(fig_obj, candidates: list[str]) -> list[str] | Non
     if not isinstance(dims_payload, list) or len(dims_payload) < 2:
         return None
 
-    label_to_metric = {pretty_metric(m): m for m in candidates if isinstance(m, str) and m}
+    label_to_metric = {attribute_display_label(m, include_category=False): m for m in candidates if isinstance(m, str) and m}
 
     new_order: list[str] = []
     for d in dims_payload:
@@ -151,12 +153,10 @@ def _scope_mask(df: pd.DataFrame, geo_scale: str, geo_scope) -> pd.Series:
 
 @callback(
     Output("vis-pcp", "figure"),
-    Output("vis-population-text", "children"),
     Input("vis-selection-store", "data"),
     Input("pcp-brush-store", "data"),
     Input("vis-geo-scale", "value"),
     Input("vis-geo-scope-dd", "value"),   # ✅ NEW
-    Input("vis-selected-attributes", "data"),
     Input("pcp-dims-store", "data"),
     Input("vis-clear-all", "n_clicks"),
     Input("vis-pcp-selected-only", "value"),
@@ -169,7 +169,6 @@ def update_pcp(
     brush_store,
     geo_scale,
     geo_scope,
-    dims_override,
     dims_store,
     clear_clicks,
     selected_only_toggle,
@@ -186,38 +185,11 @@ def update_pcp(
     show_selected_only = "on" in (selected_only_toggle or [])
     color_by_first_axis = "on" in (color_first_axis_toggle or [])
 
-    # 1) Build base dims from sidebar (this is the source of truth for "which attrs exist")
-    base_dims = _choose_dims(df, dims_override, max_dims=8)
-
-    # helper: preserve order of `preferred` but only for items in `base`,
-    # then append any new items from `base` not already present.
-    def _merge_order(preferred: list[str], base: list[str], max_dims: int = 8) -> list[str]:
-        base_set = set(base)
-        out = [d for d in preferred if d in base_set]
-        out_set = set(out)
-        out.extend([d for d in base if d not in out_set])
-        return out[:max_dims]  # ✅ cap to 8
-
-    dims_to_use: list[str] = []
-
-    # 2) If we have a stored order, merge it with base (keeps drag order but allows new attrs)
-    if isinstance(dims_store, list) and base_dims:
-        preferred = [str(x) for x in dims_store if x and str(x) in df.columns]
-        dims_to_use = _merge_order(preferred, base_dims, max_dims=8)
-
-    # 3) If no store, we *may* extract from current figure — BUT:
-    #    if the trigger is vis-attr-pool, ALWAYS use base_dims (so it can grow beyond 2)
-    if len(dims_to_use) < 2:
-        if ctx.triggered_id == "vis-attr-pool":
-            dims_to_use = base_dims
-        else:
-            extracted = _dims_from_current_figure(current_pcp_fig, candidates=base_dims)
-            if extracted and len(extracted) >= 2:
-                dims_to_use = _merge_order(extracted, base_dims, max_dims=8)
-
-    # 4) Final fallback
-    if len(dims_to_use) < 2:
-        dims_to_use = base_dims
+    if isinstance(dims_store, list) and len(dims_store) >= 2:
+        dims_to_use = [d for d in dims_store if d in df.columns][:MAX_PCP_DIMS]
+    else:
+        # fallback only for initial load
+        dims_to_use = pick_pcp_dims(df, max_dims=MAX_PCP_DIMS)
 
     # ✅ continent/region in-scope mask
     in_mask = _scope_mask(df, geo_scale or "global", geo_scope)
@@ -238,18 +210,14 @@ def update_pcp(
         color_by_first_axis=color_by_first_axis,
     )
 
-    pop_text = f"Population: {geo_scale or 'global'}"
-    if (geo_scale or "").lower() in ("continent", "region") and geo_scope:
-        pop_text += f" ({geo_scope})"
-
-    return fig, pop_text
+    return fig
 
 
 @callback(
     Output("pcp-brush-store", "data"),
     Input("vis-pcp", "restyleData"),
     Input("vis-clear-all", "n_clicks"),
-    State("vis-attr-pool", "value"),
+    State("vis-selected-attributes", "value"),
     State("pcp-dims-store", "data"),
     State("pcp-brush-store", "data"),
     prevent_initial_call=True,
@@ -308,3 +276,20 @@ def pcp_store_from_brush_or_clear(restyle_data, clear_clicks, dims_override, dim
     )
 
     return {"countries": countries, "constraints": constraints}
+
+@callback(
+    Output("pcp-dims-store", "data"),
+    Output("pcp-attr-dd", "value"),
+    Output("pcp-max-dims-dialog", "displayed"),
+    Input("pcp-attr-dd", "value"),
+)
+def update_pcp_dims_from_dropdown(attrs):
+    if not attrs:
+        return None, [], False
+
+    if len(attrs) > MAX_PCP_DIMS:
+        capped = attrs[:MAX_PCP_DIMS]
+        return capped, capped, True   # ✅ show popup
+
+    return attrs, attrs, False
+

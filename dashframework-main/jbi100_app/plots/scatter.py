@@ -4,9 +4,10 @@ import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
 
-from jbi100_app.plots.common import coerce_numeric, pretty_metric
+from jbi100_app.plots.common import coerce_numeric
 from jbi100_app.state.selection_store import SelectedCountry
 from jbi100_app.data.constants import BASE_GREY, FADED_GREY
+from jbi100_app.data.attributes import attribute_display_label
 
 
 def build_scatter_figure(
@@ -71,9 +72,9 @@ def build_scatter_figure(
             unselected=dict(marker=dict(opacity=0.03)),
             text=df["Country"],
             hovertemplate="<b>%{text}</b><br>"
-            + pretty_metric(x_metric)
+            + attribute_display_label(x_metric)
             + ": %{x}<br>"
-            + pretty_metric(y_metric)
+            + attribute_display_label(y_metric)
             + ": %{y}<extra></extra>",
             showlegend=False,
         )
@@ -118,9 +119,9 @@ def build_scatter_figure(
                     line=dict(width=1, color="rgba(0,0,0,0.35)"),
                 ),
                 hovertemplate="<b>" + cname + "</b><br>"
-                + pretty_metric(x_metric)
+                + attribute_display_label(x_metric, include_category=False)
                 + ": %{x}<br>"
-                + pretty_metric(y_metric)
+                + attribute_display_label(y_metric, include_category=False)
                 + ": %{y}<extra></extra>",
                 showlegend=False,
             )
@@ -129,8 +130,8 @@ def build_scatter_figure(
     fig.update_layout(
         template="plotly_white",
         margin=dict(l=0, r=0, t=0, b=0),
-        xaxis=dict(title=pretty_metric(x_metric)),
-        yaxis=dict(title=pretty_metric(y_metric)),
+        xaxis=dict(title=attribute_display_label(x_metric, include_category=False)),
+        yaxis=dict(title=attribute_display_label(y_metric, include_category=False)),
         dragmode="lasso",
     )
 
