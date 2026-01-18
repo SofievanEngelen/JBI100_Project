@@ -17,15 +17,17 @@ def build_scatter_figure(
     in_mask: pd.Series,
     selection_store: list[SelectedCountry],
     brush_countries: list[str] | None = None,
+    theme: str = "light",
 ) -> go.Figure:
     fig = go.Figure()
+    template = "plotly_dark" if theme == "dark" else "plotly_white"
 
     if df is None or df.empty:
-        fig.update_layout(template="plotly_white", margin=dict(l=0, r=0, t=0, b=0))
+        fig.update_layout(template=template, margin=dict(l=0, r=0, t=0, b=0))
         return fig
 
     if not x_metric or not y_metric or x_metric not in df.columns or y_metric not in df.columns:
-        fig.update_layout(template="plotly_white", margin=dict(l=0, r=0, t=0, b=0))
+        fig.update_layout(template=template, margin=dict(l=0, r=0, t=0, b=0))
         return fig
 
     # ------------------------------------------------------------
@@ -37,21 +39,30 @@ def build_scatter_figure(
         else np.ones(len(df), dtype=bool)
     )
 
-    # start with geo-scope fade
-    base_colours = np.where(in_mask_arr, BASE_GREY, FADED_GREY)
-
     # ------------------------------------------------------------
-    # PCP brush overlay (fade NON-brushed points, like filter)
-    # - if brush exists, keep brushed points at their current base colour
-    #   and fade the rest.
+    # Scope + brush colouring
     # ------------------------------------------------------------
     brush_set = set(str(x) for x in (brush_countries or []) if x)
-    if brush_set:
-        brush_mask = df["Country"].astype(str).isin(brush_set).to_numpy(dtype=bool)
+    brush_mask = (
+        df["Country"].astype(str).isin(brush_set).to_numpy(dtype=bool)
+        if brush_set
+        else np.ones(len(df), dtype=bool)
+    )
 
-        # combine: "active" = in-scope AND brushed
-        active = brush_mask
-        base_colours = np.where(active, base_colours, FADED_GREY)
+    active = in_mask_arr & brush_mask
+
+    if theme == "dark":
+        base_colours = np.where(
+            active,
+            "rgb(220,220,220)",  # active = bright
+            "rgb(35,35,35)",  # inactive
+        )
+    else:
+        base_colours = np.where(
+            active,
+            BASE_GREY,  # active
+            FADED_GREY,  # inactive
+        )
 
     x = coerce_numeric(df[x_metric])
     y = coerce_numeric(df[y_metric])
@@ -68,8 +79,8 @@ def build_scatter_figure(
                 size=6,
                 color=base_colours,
             ),
-            selected=dict(marker=dict(size=7)),
-            unselected=dict(marker=dict(opacity=0.03)),
+            # selected=dict(marker=dict(size=7)),
+            # unselected=dict(marker=dict(opacity=0.03)),
             text=df["Country"],
             hovertemplate="<b>%{text}</b><br>"
             + attribute_display_label(x_metric)
@@ -128,7 +139,7 @@ def build_scatter_figure(
         )
 
     fig.update_layout(
-        template="plotly_white",
+        template=template,
         margin=dict(l=0, r=0, t=0, b=0),
         xaxis=dict(title=attribute_display_label(x_metric, include_category=False)),
         yaxis=dict(title=attribute_display_label(y_metric, include_category=False)),

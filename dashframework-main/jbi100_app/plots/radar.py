@@ -43,7 +43,10 @@ def build_radar_figure(
     ui_category: str | None,
     selection_store: list[SelectedCountry],
     dims_override: list[str] | None = None,
+    theme: str = "light",
 ) -> go.Figure:
+    template = "plotly_dark" if theme == "dark" else "plotly_white"
+
     if df is None or df.empty or len(selection_store) < 3:
         fig = go.Figure()
         fig.add_annotation(
@@ -57,7 +60,7 @@ def build_radar_figure(
             align="center",
         )
         fig.update_layout(
-            template="plotly_white",
+            template=template,
             margin=dict(l=0, r=0, t=0, b=0),
             title=None,
             showlegend=False,
@@ -76,17 +79,17 @@ def build_radar_figure(
     if dims_override is not None and len(dims) < 3:
         fig = go.Figure()
         fig.add_annotation(
-            text="Select at least 3 attributes in the sidebar to view the radar plot",
+            text="Select at least 3 attributes to view the radar plot",
             x=0.5,
             y=0.5,
             xref="paper",
             yref="paper",
             showarrow=False,
-            font=dict(size=18, color="#374151"),
+            font=dict(size=18, color="var(--text-main)"),
             align="center",
         )
         fig.update_layout(
-            template="plotly_white",
+            template=template,
             margin=dict(l=0, r=0, t=0, b=0),
             title=None,
             showlegend=False,
@@ -104,10 +107,10 @@ def build_radar_figure(
             xref="paper",
             yref="paper",
             showarrow=False,
-            font=dict(size=16, color="#374151"),
+            font=dict(size=16, color="var(--text-main"),
         )
         fig.update_layout(
-            template="plotly_white",
+            template=template,
             margin=dict(l=0, r=0, t=0, b=0),
             title=None,
             showlegend=False,
@@ -140,7 +143,9 @@ def build_radar_figure(
         if not cname:
             continue
 
-        row = df.loc[df["Country"] == cname]
+        ck = cname.strip().upper()
+        row = df.loc[df["_CountryKey"] == ck]
+
         if row.empty:
             continue
 
@@ -170,7 +175,7 @@ def build_radar_figure(
         )
 
     fig.update_layout(
-        template="plotly_white",
+        template=template,
         margin=dict(l=40, r=40, t=30, b=40),  # ✅ extra breathing room prevents cut-off
         title=None,
         showlegend=False,

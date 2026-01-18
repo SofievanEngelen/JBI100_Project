@@ -141,8 +141,9 @@ def refresh_scatter_attr_options(_geo_scale, cur_x, cur_y):
     Input("vis-geo-scope-dd", "value"),
     Input("vis-selection-store", "data"),
     Input("pcp-brush-store", "data"),
+    Input("theme-store", "data")
 )
-def update_scatter(x_metric, y_metric, geo_scale, geo_scope, selection_store, brush_data):
+def update_scatter(x_metric, y_metric, geo_scale, geo_scope, selection_store, brush_data, theme):
     df = _safe_df()
 
     in_mask = _scatter_scope_mask(df, geo_scale or "global", geo_scope)
@@ -156,6 +157,7 @@ def update_scatter(x_metric, y_metric, geo_scale, geo_scope, selection_store, br
         in_mask=in_mask,
         selection_store=selection_store or [],
         brush_countries=brush_countries,
+        theme=theme,
     )
 
 

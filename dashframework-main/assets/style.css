@@ -166,3 +166,189 @@ button {
   margin-bottom: 2px;
 }
 
+/* ─────────────────────────────
+   Light theme (default)
+   ───────────────────────────── */
+:root {
+  --bg-main: #f6f7fb;
+  --bg-panel: #ffffff;
+  --bg-card: #ffffff;
+  --bg-input: #ffffff;
+
+  --text-main: #1f2937;
+  --text-muted: #6b7280;
+
+  --border: rgba(148,163,184,0.35);
+}
+
+
+/* ─────────────────────────────
+   Dark theme
+   ───────────────────────────── */
+[data-theme="dark"] {
+  --bg-main: #141414;
+  --bg-panel: #1F1F1F;
+  --bg-card: #1F1F1F;
+  --bg-input: #262626;     /* dropdowns */
+
+  --text-main: #e5e7eb;
+  --text-muted: #9ca3af;
+  --text-strong: #f9fafb;
+
+  --border: rgba(255,255,255,0.15);
+}
+
+.modal-backdrop {
+  z-index: 1000 !important;
+}
+
+.modal {
+  z-index: 1100 !important;
+}
+
+
+/* ─────────────────────────────
+   DASH DROPDOWNS / INPUTS
+   ───────────────────────────── */
+.Select-control,
+.Select-menu-outer,
+.Select-menu,
+.VirtualizedSelectOption {
+  background-color: var(--bg-input) !important;
+  color: var(--text-main) !important;
+  border-color: var(--border) !important;
+}
+
+.Select-placeholder,
+.Select-value-label {
+  color: var(--text-main) !important;
+}
+
+.VirtualizedSelectOption:hover {
+  background-color: rgba(255,255,255,0.06) !important;
+}
+
+.is-focused:not(.is-open) > .Select-control {
+  border-color: rgba(99,102,241,0.6) !important;
+}
+
+
+/* ─────────────────────────────
+   PLOTLY FIXES
+   ───────────────────────────── */
+.js-plotly-plot .plotly {
+  background: transparent !important;
+}
+
+
+/* ─────────────────────────────
+   SCROLLBARS (optional polish)
+   ───────────────────────────── */
+[data-theme="dark"] ::-webkit-scrollbar {
+  width: 10px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.15);
+  border-radius: 8px;
+}
+
+/* ============================================================
+   DARK MODE — Sidebar text
+   ============================================================ */
+
+/* General sidebar text */
+[data-theme="dark"] .sidebar-card {
+  color: #e5e7eb; /* light grey */
+}
+
+/* Section headers */
+[data-theme="dark"] .sidebar-card h1,
+[data-theme="dark"] .sidebar-card h2,
+[data-theme="dark"] .sidebar-card h3,
+[data-theme="dark"] .sidebar-card h4,
+[data-theme="dark"] .sidebar-card h5 {
+  color: #f9fafb; /* near-white */
+}
+
+/* Small labels (e.g. "Select Country", "Select Scale") */
+[data-theme="dark"] .sidebar-card label,
+[data-theme="dark"] .sidebar-card div {
+  color: #d1d5db;
+}
+
+/* Muted / helper text */
+[data-theme="dark"] .sidebar-card .text-muted {
+  color: #9ca3af;
+}
+
+/* Warning text (keep readable but softer) */
+[data-theme="dark"] .sidebar-card #vis-warnings {
+  color: #fca5a5;
+}
+
+/* Buttons */
+[data-theme="dark"] .sidebar-card button {
+  color: #e5e7eb;
+}
+
+/* Attribute lookup panel */
+#attr-lookup-panel h4,
+#attr-lookup-panel h5 {
+  color: var(--text-main);
+  margin-bottom: 4px;
+}
+
+#attr-lookup-panel p,
+#attr-lookup-panel li {
+  color: var(--text-muted);
+}
+
+:root {
+  --accent: #2563eb;
+}
+
+[data-theme="dark"] {
+  --accent: #60a5fa;
+}
+
+/* ===========================
+   DASH DROPDOWN OPTION SPACING
+=========================== */
+
+/* Force a taller row height */
+.VirtualizedSelectOption {
+  line-height: 1.25 !important;
+  padding: 8px 12px !important;
+  white-space: normal !important;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+
+/* Allow text to wrap */
+.VirtualizedSelectOption span,
+.VirtualizedSelectOption div {
+  white-space: normal !important;
+}
+
+
+/* =========================================
+   Dropdown placeholder text (lighter)
+   ========================================= */
+
+/* Placeholder text */
+.Select-placeholder {
+  color: var(--text-muted) !important;
+  font-weight: 400;
+}
+
+/* When dropdown is focused but empty */
+.is-focused .Select-placeholder {
+  color: var(--text-muted) !important;
+}
+
+/* Dark mode fine-tuning */
+[data-theme="dark"] .Select-placeholder {
+  color: #9ca3af !important; /* light grey */
+}

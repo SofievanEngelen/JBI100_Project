@@ -24,16 +24,25 @@ def build_map_figure(
     in_mask: pd.Series | None,
     selection_store: list[SelectedCountry],
     brush_country_keys: list[str] | None = None,
+    theme: str = "light",
 ) -> go.Figure:
 
     fig = go.Figure()
+    template = "plotly_dark" if theme == "dark" else "plotly_white"
+
+    if theme == "dark":
+        OUT_OF_SCOPE_FILL = "rgb(31, 31, 31)"  # light grey in dark mode
+        OUT_OF_SCOPE_LINE = "rgba(130,130,130,0.6)"
+    else:
+        OUT_OF_SCOPE_FILL = "white"
+        OUT_OF_SCOPE_LINE = "rgba(180,180,180,0.6)"
 
     # ------------------------------------------------------------
     # Safety
     # ------------------------------------------------------------
     if df is None or df.empty or not metric or metric not in df.columns:
         fig.update_layout(
-            template="plotly_white",
+            template=template,
             margin=dict(l=0, r=0, t=0, b=0),
         )
         return fig
@@ -138,9 +147,9 @@ def build_map_figure(
                 locations=plot_df.loc[out_mask, "_PLOTLY_NAME"],
                 locationmode="country names",
                 z=[1] * int(out_mask.sum()),
-                colorscale=[[0, "white"], [1, "white"]],
+                colorscale=[[0, OUT_OF_SCOPE_FILL], [1, OUT_OF_SCOPE_FILL]],
                 showscale=False,
-                marker_line_color="rgba(180,180,180,0.6)",
+                marker_line_color=OUT_OF_SCOPE_LINE,
                 marker_line_width=0.5,
                 hoverinfo="skip",
             )
@@ -214,7 +223,7 @@ def build_map_figure(
     # Layout
     # ------------------------------------------------------------
     fig.update_layout(
-        template="plotly_white",
+        template=template,
         margin=dict(l=0, r=0, t=30, b=0),
         geo=dict(showframe=False, showcoastlines=False),
         coloraxis=coloraxis,

@@ -75,15 +75,16 @@ def refresh_single_attr_options(_geo_scale, cur_hist, cur_violin):
 
 @callback(
     Output("vis-filter-plot", "figure"),
-    Output("vis-filter-text", "children"),
+    # Output("vis-filter-text", "children"),
     Input("vis-hist-attr", "value"),
     Input("vis-hist-bins", "value"),
     Input("vis-geo-scale", "value"),
     Input("vis-geo-scope-dd", "value"),  # ✅ NEW
     Input("vis-selection-store", "data"),
     Input("pcp-brush-store", "data"),
+    Input("theme-store", "data"),
 )
-def update_histogram(metric, bins, geo_scale, geo_scope, selection_store, brush_data):
+def update_histogram(metric, bins, geo_scale, geo_scope, selection_store, brush_data, theme):
     """
     IMPORTANT: The histogram should NOT be filtered by the global brush,
     otherwise clicking a bin makes the histogram "zoom" (bins/range recompute).
@@ -107,11 +108,10 @@ def update_histogram(metric, bins, geo_scale, geo_scope, selection_store, brush_
         in_mask=in_mask,
         selection_store=selection_store,
         brush_countries=brush,  # overlay highlight, don't filter df
+        theme=theme,
     )
 
-    scope_active = (geo_scale or "global") in ("continent", "region") and bool(geo_scope)
-    filter_txt = f"Filter: {len(brush)} countries" if brush else "Filter: none"
-    return fig, (("Continent/region active | " if scope_active else "") + filter_txt)
+    return fig
 
 
 @callback(
@@ -120,8 +120,9 @@ def update_histogram(metric, bins, geo_scale, geo_scope, selection_store, brush_
     Input("vis-geo-scale", "value"),
     Input("vis-geo-scope-dd", "value"),  # ✅ NEW (so violin scope matches)
     Input("vis-selection-store", "data"),
+    Input("theme-store", "data"),
 )
-def update_violin(metric, geo_scale, geo_scope, selection_store):
+def update_violin(metric, geo_scale, geo_scope, selection_store, theme):
     df = _safe_df()
 
     selection_store = normalize_selection_store(selection_store)
@@ -133,6 +134,7 @@ def update_violin(metric, geo_scale, geo_scope, selection_store):
         geo_scale=geo_scale or "global",
         in_mask=in_mask,
         selection_store=selection_store,
+        theme=theme,
     )
 
 # ---------------------------------------------------------------------

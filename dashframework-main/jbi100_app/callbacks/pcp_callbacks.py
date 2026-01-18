@@ -162,6 +162,7 @@ def _scope_mask(df: pd.DataFrame, geo_scale: str, geo_scope) -> pd.Series:
     Input("vis-pcp-selected-only", "value"),
     Input("vis-pcp-color-first-axis", "value"),
     State("vis-pcp", "figure"),
+    Input("theme-store", "data"),
     prevent_initial_call=False,
 )
 def update_pcp(
@@ -174,6 +175,7 @@ def update_pcp(
     selected_only_toggle,
     color_first_axis_toggle,
     current_pcp_fig,
+    theme
 ):
     df = _safe_df()
     if df.empty:
@@ -208,6 +210,7 @@ def update_pcp(
         dims_override=dims_to_use,
         show_selected_only=show_selected_only,
         color_by_first_axis=color_by_first_axis,
+        theme=theme,
     )
 
     return fig

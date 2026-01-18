@@ -46,11 +46,14 @@ def build_histogram_figure(
     in_mask: pd.Series,
     selection_store: list[SelectedCountry],
     brush_countries: list[str],
+    theme: str = "light"
 ) -> go.Figure:
+    template = "plotly_dark" if theme == "dark" else "plotly_white"
+
     fig = go.Figure()
 
     if df is None or df.empty or not metric or metric not in df.columns:
-        fig.update_layout(template="plotly_white", margin=dict(l=0, r=0, t=0, b=0), title=None)
+        fig.update_layout(template=template, margin=dict(l=0, r=0, t=0, b=0), title=None)
         return fig
 
     geo_scale = (geo_scale or "global").lower().strip()
@@ -66,7 +69,7 @@ def build_histogram_figure(
     in_names = in_df.loc[in_keep, "Country"].astype(str).tolist()
 
     if in_vals.size == 0:
-        fig.update_layout(template="plotly_white", margin=dict(l=0, r=0, t=0, b=0), title=None)
+        fig.update_layout(template=template, margin=dict(l=0, r=0, t=0, b=0), title=None)
         return fig
 
     # ---- out-of-scope values
@@ -181,7 +184,7 @@ def build_histogram_figure(
         fig.add_vline(x=float(v), line_width=2, line_color=ccol, opacity=0.95)
 
     fig.update_layout(
-        template="plotly_white",
+        template=template,
         margin=dict(l=0, r=0, t=0, b=0),
         title=None,
         barmode="overlay",

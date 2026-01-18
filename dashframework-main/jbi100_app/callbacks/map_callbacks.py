@@ -86,8 +86,9 @@ def _brush_countries_for_df(brush_data, df: pd.DataFrame) -> list[str]:
     Input("vis-geo-scope-dd", "value"),
     Input("vis-selection-store", "data"),
     Input("pcp-brush-store", "data"),
+    Input("theme-store", "data"),
 )
-def update_map(metric, geo_scale, geo_scope, selection_store, brush_data):
+def update_map(metric, geo_scale, geo_scope, selection_store, brush_data, theme):
     if DATA_INFO is None or DATA_INFO.empty or metric is None:
         return build_map_figure(
             pd.DataFrame(),
@@ -131,4 +132,5 @@ def update_map(metric, geo_scale, geo_scope, selection_store, brush_data):
         geo_scale,
         in_mask,
         selection_store or [],
+        theme=theme,
     )

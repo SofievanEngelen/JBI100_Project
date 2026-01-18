@@ -3,6 +3,7 @@ from __future__ import annotations
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 
+from jbi100_app.views.menu import layout as menu_layout
 from jbi100_app.data.data_loader import DATA_INFO, ALL_COUNTRIES
 from jbi100_app.data.attributes import attribute_display_label, all_numeric_attributes
 
@@ -25,10 +26,10 @@ def _numeric_attribute_values() -> list[str]:
 
 def _card(children, style_extra=None, class_name: str | None = None):
     style = {
-        "background": "white",
+        "background": "var(--bg-card)",
         "borderRadius": "14px",
-        "boxShadow": "0 6px 18px rgba(15, 23, 42, 0.08)",
-        "border": "1px solid rgba(148, 163, 184, 0.35)",
+        "boxShadow": "0 6px 18px rgba(0,0,0,0.25)",
+        "border": "1px solid var(--border)",
         "padding": "12px",
         "minHeight": 0,
     }
@@ -36,11 +37,10 @@ def _card(children, style_extra=None, class_name: str | None = None):
         style.update(style_extra)
     return html.Div(style=style, children=children, className=class_name)
 
-
 def _panel(children, style_extra=None):
     style = {
         "height": "100%",
-        "background": "#ffffff",
+        "background": "var(--bg-panel)",
         "borderRadius": "18px",
         "padding": "18px 22px",
         "boxSizing": "border-box",
@@ -48,22 +48,21 @@ def _panel(children, style_extra=None):
         "flexDirection": "column",
         "gap": "12px",
         "minHeight": 0,
-        "border": "1px solid rgba(148, 163, 184, 0.25)",
+        "border": "1px solid var(--border)",
     }
     if style_extra:
         style.update(style_extra)
     return html.Div(style=style, children=children)
 
-
 def _plot_wrap(children, style_extra=None):
     style = {
-        "background": "white",
+        "background": "var(--bg-card)",
         "borderRadius": "12px",
         "padding": "10px",
         "boxSizing": "border-box",
         "flex": "1",
         "minHeight": 0,
-        "border": "1px solid rgba(148, 163, 184, 0.25)",
+        "border": "1px solid var(--border)",
     }
     if style_extra:
         style.update(style_extra)
@@ -84,22 +83,26 @@ PLOT_CONFIG = {"displayModeBar": False, "responsive": True}
 
 layout = html.Div(
     id="root",
+    **{"data-theme": "light"},
     style={
         "height": "100%",
         "width": "100%",
         "padding": "10px 10px 25px 10px",
         "boxSizing": "border-box",
-        "background": "#f6f7fb",
+        "background": "var(--bg-main)",
+        "color": "var(--text-main)",
     },
     children=[
+        menu_layout(),
         html.Div(
             id="app-root",
             style={
-                "height": "100%",
+                "height": "93%",
                 "display": "grid",
-                "gridTemplateColumns": "350px 1fr",
+                "gridTemplateColumns": "275px 1fr",
                 "gap": "12px",
                 "minHeight": 0,
+                "marginTop": "12px"
                 # "overflow": "hidden",
             },
             children=[
@@ -112,7 +115,7 @@ layout = html.Div(
                         "display": "flex",
                         "flexDirection": "column",
                         "padding": "12px 12px 25px 12px",
-                        "height": "96.5%",
+                        "height": "100%",
                         "minHeight": 0,
                     },
                     children=[
@@ -122,9 +125,9 @@ layout = html.Div(
 
                         html.Div(
                             "Visualization Tool",
-                            style={"fontSize": "16px", "fontWeight": "900", "color": "#0b1f3b", "marginBottom": "6px"},
+                            style={"fontSize": "16px", "fontWeight": "900", "color": "var(--text-main)", "marginBottom": "6px"},
                         ),
-                        html.Div("Select Country (max 6)", style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"}),
+                        html.Div("Select Country (max 6)", style={"fontSize": "11px", "fontWeight": "800", "color": "var(--text-muted)"}),
                         dcc.Dropdown(
                             id="vis-country",
                             style={"paddingBottom": "10px"},
@@ -133,7 +136,7 @@ layout = html.Div(
                             multi=True,
                             placeholder="Find country",
                         ),
-                        html.Div("Select Scale", style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"}),
+                        html.Div("Select Scale", style={"fontSize": "11px", "fontWeight": "800", "color": "var(--text-muted)"}),
                         dcc.RadioItems(
                             id="vis-geo-scale",
                             value="global",
@@ -149,7 +152,7 @@ layout = html.Div(
                             id="vis-geo-scope-container",
                             style={"marginTop": "6px", "display": "none", "marginBottom": "6px"},
                             children=[
-                                html.Div("Visible area", style={"fontSize": "11px", "fontWeight": "800", "color": "#243b53"}),
+                                html.Div("Visible area", style={"fontSize": "11px", "fontWeight": "800", "color": "var(--text-muted)"}),
                                 dcc.Dropdown(
                                     id="vis-geo-scope-dd",
                                     options=[],
@@ -160,7 +163,7 @@ layout = html.Div(
                                 ),
                             ],
                         ),
-                        html.Div(id="vis-warnings", style={"fontSize": "11px", "color": "#b91c1c"}),
+                        html.Div(id="vis-warnings", style={"fontSize": "11px", "color": "var(--danger)"}),
                         html.Button("Clear filter", id="vis-clear-all", n_clicks=0, style={"width": "100%", "marginBottom": "6px"}),
                         html.Hr(style={"margin": "8px 0"}),
                         html.Div(
@@ -168,7 +171,7 @@ layout = html.Div(
                             style={
                                 "fontSize": "12px",
                                 "fontWeight": "800",
-                                "color": "#243b53",
+                                "color": "var(--text-muted)",
                                 "marginBottom": "6px",
                             },
                         ),
@@ -194,11 +197,11 @@ layout = html.Div(
                             style={
                                 "marginTop": "10px",
                                 "padding": "10px",
-                                "border": "1px solid rgba(148,163,184,0.35)",
+                                "border": "1px solid var(--border)",
                                 "borderRadius": "10px",
-                                "background": "#fbfcff",
+                                "background": "var(--bg-card)",
                                 "fontSize": "12px",
-                                "color": "#1f2937",
+                                "color": "var(--text-main)",
                                 "display": "none",
                             },
                         ),
@@ -208,6 +211,7 @@ layout = html.Div(
                         dcc.Store(id="pcp-brush-store", data=None),
                         dcc.Store(id="vis-selection-store", data=[]),
                         dcc.Store(id="pcp-dims-store", data=None),
+                        dcc.Store(id="radar-attr-store", data=None),
                         dcc.Store(id="vis-selected-attributes"),
                     ],
                 ),
@@ -238,7 +242,7 @@ layout = html.Div(
                                         html.Div(
                                             style={"display": "flex", "justifyContent": "space-between", "alignItems": "center", "gap": "12px"},
                                             children=[
-                                                html.Div("Map", style={"fontSize": "18px", "fontWeight": "900", "color": "#3a3a3a"}),
+                                                html.Div("Map", style={"fontSize": "18px", "fontWeight": "900", "color": "var(--text-main)"}),
                                                 dcc.Dropdown(
                                                     id="vis-metric",
                                                     options=options,
@@ -318,7 +322,7 @@ layout = html.Div(
                                                                 "transform": "translateX(-50%)",
                                                                 "fontSize": "14px",
                                                                 "fontWeight": "800",
-                                                                "color": "#1f2937",
+                                                                "color": "var(--text-main)",
                                                                 "pointerEvents": "none",
                                                             },
                                                         ),
@@ -341,7 +345,34 @@ layout = html.Div(
                                             style={"display": "none"},
                                             children=[dcc.Dropdown(id="vis-violin-attr", options=[], placeholder="Attribute", clearable=False)],
                                         ),
-                                        html.Div(id="vis-controls-radar", style={"display": "none"}),
+                                        html.Div(
+                                            id="vis-controls-radar",
+                                            style={
+                                                "marginTop": "8px",
+                                            },
+                                            children=[
+                                                dcc.Dropdown(
+                                                    id="vis-radar-attr",
+                                                    options=[
+                                                        {
+                                                            "label": attribute_display_label(
+                                                                a,
+                                                                include_category=False,
+                                                                include_unit=False,
+                                                            ),
+                                                            "value": a,
+                                                        }
+                                                        for a in sorted(
+                                                            all_numeric_attributes(DATA_INFO),
+                                                            key=lambda a: attribute_display_label(a).lower(),
+                                                        )
+                                                    ],
+                                                    value=[],
+                                                    multi=True,
+                                                    placeholder="Select radar attributes (max 8)",
+                                                )
+                                            ],
+                                        ),
                                         _plot_wrap(
                                             children=[
                                                 html.Div(
@@ -361,12 +392,20 @@ layout = html.Div(
                                                 ),
                                                 html.Div(
                                                     id="vis-right-wrap-radar",
-                                                    style={"height": "100%", "minHeight": 0, "display": "none"},
-                                                    children=dcc.Graph(id="vis-radar-plot", config=PLOT_CONFIG, style={"height": "100%", "width": "100%"}),
+                                                    style={"height": "100%", "minHeight": 0},
+                                                    children=[dcc.Graph(
+                                                            id="vis-radar-plot",
+                                                            config=PLOT_CONFIG,
+                                                            style={"height": "100%", "width": "100%"},
+                                                        ),
+                                                    ],
+                                                ),
+                                                dcc.ConfirmDialog(
+                                                id="radar-max-dims-dialog",
+                                                message="You can select a maximum of 8 attributes for the Radar Plot.",
                                                 ),
                                             ]
                                         ),
-                                        html.Div(id="vis-filter-text", style={"fontSize": "12px", "color": "#6b7280"}),
                                     ],
                                 ),
                             ],
@@ -395,7 +434,7 @@ layout = html.Div(
                                             style={
                                                 "fontSize": "18px",
                                                 "fontWeight": "900",
-                                                "color": "#3a3a3a",
+                                                "color": "var(--text-main)",
                                             },
                                         ),
 
@@ -413,7 +452,7 @@ layout = html.Div(
                                                 ],
                                                 value=[],  # filled by callback
                                                 multi=True,
-                                                placeholder="PCP attributes (max 8)",
+                                                placeholder="Select PCP attributes (max 8)",
                                                 style={
                                                     "minWidth": "520px",
                                                     "maxWidth": "800px",

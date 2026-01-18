@@ -15,7 +15,7 @@ from dash import Input, Output, callback
 )
 def toggle_right_panel(viz_key):
     plot_show = {"display": "block", "height": "100%", "minHeight": 0}
-    plot_hide = {"display": "none", "height": "100%", "minHeight": 0}
+    plot_hide = {"display": "none", "height": "100%", "minHeight": 0, "paddingBottom": 0,}
 
     ctrl_scatter = {"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "14px"}
     ctrl_hist = {"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "18px", "alignItems": "center"}
@@ -31,7 +31,7 @@ def toggle_right_panel(viz_key):
         return plot_hide, plot_hide, plot_show, plot_hide, ctrl_none, ctrl_none, ctrl_one, ctrl_none
 
     if viz_key == "radar":
-        return plot_hide, plot_hide, plot_hide, plot_show, ctrl_none, ctrl_none, ctrl_none, ctrl_none
+        return plot_hide, plot_hide, plot_hide, plot_show, ctrl_none, ctrl_none, ctrl_none, ctrl_one
 
     # scatter default
     return plot_show, plot_hide, plot_hide, plot_hide, ctrl_scatter, ctrl_none, ctrl_none, ctrl_none

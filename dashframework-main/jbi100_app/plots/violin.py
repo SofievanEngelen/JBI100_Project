@@ -17,10 +17,13 @@ def build_violin_figure(
     geo_scale: str,
     in_mask: pd.Series,
     selection_store: list[SelectedCountry],
+    theme: str = "light",
 ) -> go.Figure:
+    template = "plotly_dark" if theme == "dark" else "plotly_white"
+
     fig = go.Figure()
     if df is None or df.empty or not metric or metric not in df.columns:
-        fig.update_layout(template="plotly_white", margin=dict(l=0, r=0, t=0, b=0), title=None)
+        fig.update_layout(template=template, margin=dict(l=0, r=0, t=0, b=0), title=None)
         return fig
 
     geo_scale = (geo_scale or "global").lower().strip()
@@ -32,7 +35,7 @@ def build_violin_figure(
     in_vals = coerce_numeric(in_df[metric]).to_numpy(dtype=float)
     in_vals = in_vals[np.isfinite(in_vals)]
     if in_vals.size == 0:
-        fig.update_layout(template="plotly_white", margin=dict(l=0, r=0, t=0, b=0), title=None)
+        fig.update_layout(template=template, margin=dict(l=0, r=0, t=0, b=0), title=None)
         return fig
 
     out_vals = coerce_numeric(out_df[metric]).to_numpy(dtype=float)
@@ -81,7 +84,7 @@ def build_violin_figure(
         fig.add_vline(x=float(v), line_width=2, line_color=ccol, opacity=0.95)
 
     fig.update_layout(
-        template="plotly_white",
+        template=template,
         margin=dict(l=0, r=0, t=0, b=0),
         title=None,
         xaxis=dict(title=attribute_display_label(metric)),

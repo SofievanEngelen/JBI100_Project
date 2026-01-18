@@ -13,7 +13,6 @@ def update_attribute_lookup(attr):
         return None, {"display": "none"}
 
     row = ATTRIBUTE_METADATA.loc[attr]
-
     scale = attribute_scale(attr)
 
     scale_label = (
@@ -31,7 +30,7 @@ def update_attribute_lookup(attr):
                 ),
                 html.Span(
                     f" ({row['Unit']})" if row["Unit"] else "",
-                    style={"color": "#6b7280"},
+                    style={"color": "var(--text-muted)"},
                 ),
                 html.Span(
                     row["Category"],
@@ -39,17 +38,18 @@ def update_attribute_lookup(attr):
                         "float": "right",
                         "fontSize": "11px",
                         "fontWeight": "700",
-                        "color": "#2563eb",
+                        "color": "var(--accent)",
                     },
                 ),
             ],
             style={"marginBottom": "6px"},
         ),
+
         html.Div(
             f"Scale: {scale_label}",
             style={
                 "fontSize": "11px",
-                "color": "#6b7280",
+                "color": "var(--text-muted)",
                 "marginBottom": "6px",
             },
         ),
@@ -67,10 +67,26 @@ def update_attribute_lookup(attr):
             "display": "block",
             "marginTop": "10px",
             "padding": "10px",
-            "border": "1px solid rgba(148,163,184,0.35)",
+            "border": "1px solid var(--border)",
             "borderRadius": "10px",
-            "background": "#fbfcff",
+            "background": "var(--bg-card)",
             "fontSize": "12px",
-            "color": "#1f2937",
+            "color": "var(--text-main)",
         },
     )
+
+
+
+@callback(
+    Output("theme-store", "data"),
+    Input("theme-toggle", "value"),
+)
+def set_theme(is_dark):
+    return "dark" if is_dark else "light"
+
+@callback(
+    Output("root", "data-theme"),
+    Input("theme-store", "data"),
+)
+def apply_theme(theme):
+    return theme
