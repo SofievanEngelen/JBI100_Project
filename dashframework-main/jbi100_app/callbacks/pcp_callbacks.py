@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from dash import Input, Output, State, callback, no_update, ctx, ALL
+from dash import Input, Output, State, callback, no_update, ctx
 
 from jbi100_app.data.data_loader import DATA_INFO
 from jbi100_app.data.geo_utils import geo_mask, CONTINENTS, REGIONS
@@ -12,58 +12,93 @@ from jbi100_app.state.filters import (
     parse_parcoords_constraintrange_patch,
     countries_from_parcoords_constraints,
 )
-from jbi100_app.state.selection_store import normalize_selection_store
+from jbi100_app.state.selection_store import normalise_selection_store
 from jbi100_app.data.attributes import attribute_display_label
+
 
 MAX_PCP_DIMS = 8
 
+
+# =============================================================================
+# Helpers
+# =============================================================================
+
 def _safe_df() -> pd.DataFrame:
+    """
+    Return a safe copy of the global dataset.
+    """
     if DATA_INFO is None or getattr(DATA_INFO, "empty", True):
         return pd.DataFrame(columns=["Country"])
     return DATA_INFO.copy()
 
 
-def _choose_dims(df: pd.DataFrame, dims_override: list[str] | None, max_dims: int = 8) -> list[str]:
+def _choose_dims(
+    df: pd.DataFrame,
+    dims_override: list[str] | None,
+    max_dims: int = MAX_PCP_DIMS,
+) -> list[str]:
+    """
+    Choose PCP dimensions, preferring explicit user selection when valid.
+    """
     if isinstance(dims_override, list) and len(dims_override) >= 2:
         return [str(d) for d in dims_override if d in df.columns][:max_dims]
+
     return pick_pcp_dims(df, max_dims=max_dims)
 
 
-def _pcp_normalized_work(df: pd.DataFrame, dims: list[str]) -> pd.DataFrame:
+def _pcp_normalised_work(df: pd.DataFrame, dims: list[str]) -> pd.DataFrame:
+    """
+    Produce a 0–1 normalised working dataframe for PCP filtering.
+    """
     if df is None or df.empty or len(dims) < 2:
         return pd.DataFrame(columns=["Country"])
 
     work = df[["Country"] + dims].copy()
 
-    for c in dims:
-        work[c] = coerce_numeric(work[c])
-        med = work[c].median(skipna=True)
-        work[c] = work[c].fillna(med)
+    for col in dims:
+        work[col] = coerce_numeric(work[col])
+        median = work[col].median(skipna=True)
+        work[col] = work[col].fillna(median)
 
-        mn, mx = float(work[c].min()), float(work[c].max())
+        mn, mx = float(work[col].min()), float(work[col].max())
         if np.isfinite(mn) and np.isfinite(mx) and mx > mn:
-            work[c] = (work[c] - mn) / (mx - mn)
+            work[col] = (work[col] - mn) / (mx - mn)
         else:
-            work[c] = 0.0
+            work[col] = 0.0
 
     return work
 
 
 def _brush_countries_from_store(brush_store) -> list[str]:
+    """
+    Extract country names from the PCP brush store.
+    """
     if brush_store is None:
         return []
+
     if isinstance(brush_store, dict):
-        vals = brush_store.get("countries", [])
-        if isinstance(vals, list):
-            return [str(x) for x in vals if x]
+        values = brush_store.get("countries", [])
+        if isinstance(values, list):
+            return [str(x) for x in values if x]
         return []
+
     if isinstance(brush_store, list):
         return [str(x) for x in brush_store if x]
+
     return []
 
 
-def _normalize_prev_constraints(prev_store, dims: list[str]) -> dict[str, list[list[float]]]:
+def _normalise_prev_constraints(
+    prev_store,
+    dims: list[str],
+) -> dict[str, list[list[float]]]:
+    """
+    Normalise previously stored PCP constraints.
+
+    Supports both index-based (legacy) and name-based keys.
+    """
     out: dict[str, list[list[float]]] = {}
+
     if not isinstance(prev_store, dict):
         return out
 
@@ -71,71 +106,36 @@ def _normalize_prev_constraints(prev_store, dims: list[str]) -> dict[str, list[l
     if not isinstance(raw, dict):
         return out
 
-    for k, v in raw.items():
-        if not isinstance(v, list):
+    for key, value in raw.items():
+        if not isinstance(value, list):
             continue
 
-        key = str(k)
+        key_str = str(key)
 
-        if key.isdigit():
-            try:
-                idx = int(key)
-            except Exception:
-                continue
+        if key_str.isdigit():
+            idx = int(key_str)
             if 0 <= idx < len(dims):
-                out[dims[idx]] = v
-            continue
-
-        out[key] = v
+                out[dims[idx]] = value
+        else:
+            out[key_str] = value
 
     return out
 
 
-def _dims_from_current_figure(fig_obj, candidates: list[str]) -> list[str] | None:
-    if not isinstance(fig_obj, dict):
-        return None
-
-    data = fig_obj.get("data")
-    if not isinstance(data, list) or not data:
-        return None
-
-    trace0 = data[0]
-    if not isinstance(trace0, dict):
-        return None
-
-    dims_payload = trace0.get("dimensions")
-    if not isinstance(dims_payload, list) or len(dims_payload) < 2:
-        return None
-
-    label_to_metric = {attribute_display_label(m, include_category=False): m for m in candidates if isinstance(m, str) and m}
-
-    new_order: list[str] = []
-    for d in dims_payload:
-        if not isinstance(d, dict):
-            continue
-        lab = d.get("label")
-        if not isinstance(lab, str):
-            continue
-        m = label_to_metric.get(lab)
-        if m and m not in new_order:
-            new_order.append(m)
-
-    if len(new_order) >= 2:
-        return new_order
-
-    return None
-
-
-def _scope_mask(df: pd.DataFrame, geo_scale: str, geo_scope) -> pd.Series:
+def _scope_mask(
+    df: pd.DataFrame,
+    geo_scale: str,
+    geo_scope,
+) -> pd.Series:
     """
-    Match map behaviour for continent/region.
+    Compute continent / region scope mask, matching map behaviour.
     """
     if df is None or df.empty:
         return pd.Series(dtype=bool)
 
     geo_scale = (geo_scale or "global").lower().strip()
 
-    base_mask = geo_mask(df, geo_scale or "global", None)
+    base_mask = geo_mask(df, geo_scale, None)
     scope_mask = pd.Series(True, index=df.index)
 
     if geo_scale == "continent" and geo_scope in CONTINENTS:
@@ -151,12 +151,16 @@ def _scope_mask(df: pd.DataFrame, geo_scale: str, geo_scope) -> pd.Series:
     return base_mask & scope_mask
 
 
+# =============================================================================
+# Callbacks
+# =============================================================================
+
 @callback(
     Output("vis-pcp", "figure"),
     Input("vis-selection-store", "data"),
     Input("pcp-brush-store", "data"),
     Input("vis-geo-scale", "value"),
-    Input("vis-geo-scope-dd", "value"),   # ✅ NEW
+    Input("vis-geo-scope-dd", "value"),
     Input("pcp-dims-store", "data"),
     Input("vis-clear-all", "n_clicks"),
     Input("vis-pcp-selected-only", "value"),
@@ -173,47 +177,45 @@ def update_pcp(
     dims_store,
     clear_clicks,
     selected_only_toggle,
-    color_first_axis_toggle,
+    colour_first_axis_toggle,
     current_pcp_fig,
-    theme
+    theme,
 ):
+    """
+    Update the Parallel Coordinates Plot in response to UI changes.
+    """
     df = _safe_df()
     if df.empty:
-        return no_update, ""
+        return no_update
 
-    selection_store = normalize_selection_store(selection_store)
+    selection_store = normalise_selection_store(selection_store)
     brush_countries = _brush_countries_from_store(brush_store)
 
     show_selected_only = "on" in (selected_only_toggle or [])
-    color_by_first_axis = "on" in (color_first_axis_toggle or [])
+    colour_by_first_axis = "on" in (colour_first_axis_toggle or [])
 
     if isinstance(dims_store, list) and len(dims_store) >= 2:
         dims_to_use = [d for d in dims_store if d in df.columns][:MAX_PCP_DIMS]
     else:
-        # fallback only for initial load
         dims_to_use = pick_pcp_dims(df, max_dims=MAX_PCP_DIMS)
 
-    # ✅ continent/region in-scope mask
-    in_mask = _scope_mask(df, geo_scale or "global", geo_scope)
+    in_mask = _scope_mask(df, geo_scale, geo_scope)
+    uirevision = f"pcp:{int(clear_clicks or 0)}"
 
-    uirev = f"pcp:{int(clear_clicks or 0)}"
-
-    fig = build_pcp_figure(
+    return build_pcp_figure(
         df=df,
         ui_category=None,
         geo_scale=geo_scale or "global",
-        in_mask=in_mask,                 # ✅ NEW (now used)
+        in_mask=in_mask,
         selection_store=selection_store,
-        max_dims=8,
+        max_dims=MAX_PCP_DIMS,
         brush_countries=brush_countries,
-        uirevision=uirev,
+        uirevision=uirevision,
         dims_override=dims_to_use,
         show_selected_only=show_selected_only,
-        color_by_first_axis=color_by_first_axis,
+        colour_by_first_axis=colour_by_first_axis,
         theme=theme,
     )
-
-    return fig
 
 
 @callback(
@@ -225,7 +227,16 @@ def update_pcp(
     State("pcp-brush-store", "data"),
     prevent_initial_call=True,
 )
-def pcp_store_from_brush_or_clear(restyle_data, clear_clicks, dims_override, dims_store, prev_store):
+def pcp_store_from_brush_or_clear(
+    restyle_data,
+    clear_clicks,
+    dims_override,
+    dims_store,
+    prev_store,
+):
+    """
+    Update PCP brush store from brushing or clear action.
+    """
     if ctx.triggered_id == "vis-clear-all":
         return None
 
@@ -233,19 +244,22 @@ def pcp_store_from_brush_or_clear(restyle_data, clear_clicks, dims_override, dim
     if df.empty:
         return None
 
-    dims = []
+    dims: list[str] = []
+
     if isinstance(dims_store, list):
-        dims = [str(x) for x in dims_store if x and str(x) in df.columns][:8]
+        dims = [str(x) for x in dims_store if x in df.columns][:MAX_PCP_DIMS]
+
     if len(dims) < 2:
-        dims = _choose_dims(df, dims_override, max_dims=8)
+        dims = _choose_dims(df, dims_override)
+
     if len(dims) < 2:
         return None
 
-    work_norm = _pcp_normalized_work(df, dims=dims)
+    work_norm = _pcp_normalised_work(df, dims)
     if work_norm.empty:
         return None
 
-    prev_constraints = _normalize_prev_constraints(prev_store, dims=dims)
+    prev_constraints = _normalise_prev_constraints(prev_store, dims)
 
     patch, saw_constraint_key = parse_parcoords_constraintrange_patch(restyle_data)
     if not saw_constraint_key:
@@ -254,20 +268,13 @@ def pcp_store_from_brush_or_clear(restyle_data, clear_clicks, dims_override, dim
     constraints = dict(prev_constraints)
 
     for dim_idx_str, ranges in patch.items():
-        try:
-            dim_idx = int(str(dim_idx_str))
-        except Exception:
-            continue
-
-        if not (0 <= dim_idx < len(dims)):
-            continue
-
-        dim_name = dims[dim_idx]
-
-        if not ranges:
-            constraints.pop(dim_name, None)
-        else:
-            constraints[dim_name] = ranges
+        dim_idx = int(dim_idx_str)
+        if 0 <= dim_idx < len(dims):
+            dim_name = dims[dim_idx]
+            if ranges:
+                constraints[dim_name] = ranges
+            else:
+                constraints.pop(dim_name, None)
 
     if not constraints:
         return None
@@ -278,7 +285,11 @@ def pcp_store_from_brush_or_clear(restyle_data, clear_clicks, dims_override, dim
         constraints=constraints,
     )
 
-    return {"countries": countries, "constraints": constraints}
+    return {
+        "countries": countries,
+        "constraints": constraints,
+    }
+
 
 @callback(
     Output("pcp-dims-store", "data"),
@@ -287,12 +298,14 @@ def pcp_store_from_brush_or_clear(restyle_data, clear_clicks, dims_override, dim
     Input("pcp-attr-dd", "value"),
 )
 def update_pcp_dims_from_dropdown(attrs):
+    """
+    Update PCP dimensions from the dropdown, enforcing the dimension cap.
+    """
     if not attrs:
         return None, [], False
 
     if len(attrs) > MAX_PCP_DIMS:
         capped = attrs[:MAX_PCP_DIMS]
-        return capped, capped, True   # ✅ show popup
+        return capped, capped, True
 
     return attrs, attrs, False
-

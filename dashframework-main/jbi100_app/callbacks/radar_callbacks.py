@@ -1,19 +1,30 @@
 # jbi100_app/callbacks/radar_callbacks.py
 from __future__ import annotations
 
-from dash import Input, Output, callback, State
 import pandas as pd
+from dash import Input, Output, State, callback
 
 from jbi100_app.data.data_loader import DATA_INFO
 from jbi100_app.plots.radar import build_radar_figure
-from jbi100_app.state.selection_store import normalize_selection_store
+from jbi100_app.state.selection_store import normalise_selection_store
 
+
+# =============================================================================
+# Helpers
+# =============================================================================
 
 def _safe_df() -> pd.DataFrame:
+    """
+    Defensive accessor for the main dataset.
+    """
     if DATA_INFO is None or getattr(DATA_INFO, "empty", True):
         return pd.DataFrame(columns=["Country", "Region", "Continent"])
     return DATA_INFO.copy()
 
+
+# =============================================================================
+# Radar plot rendering
+# =============================================================================
 
 @callback(
     Output("vis-radar-plot", "figure"),
@@ -21,19 +32,19 @@ def _safe_df() -> pd.DataFrame:
     Input("vis-radar-attr", "value"),
     Input("theme-store", "data"),
 )
-def update_radar(selection_store, radar_attr, theme):
+def update_radar(
+    selection_store,
+    radar_attr,
+    theme: str,
+):
+    """
+    Update the radar plot based on selected countries and attributes.
+    """
     df = _safe_df()
-    selection_store = normalize_selection_store(selection_store)
+    selection_store = normalise_selection_store(selection_store)
 
-    missing = []
-    for item in selection_store:
-        cname = item["country_name"]
-        if cname in df["Country"].values:
-            missing.append(cname)
+    dims_override: list[str] = []
 
-    print("Radar not missing countries:", missing)
-
-    dims_override = []
     if isinstance(radar_attr, list):
         dims_override = [str(x) for x in radar_attr if x][:8]
     elif isinstance(radar_attr, str) and radar_attr:
@@ -47,13 +58,22 @@ def update_radar(selection_store, radar_attr, theme):
         theme=theme,
     )
 
+
+# =============================================================================
+# Radar attribute state + limits
+# =============================================================================
+
 MAX_RADAR_DIMS = 8
+
 
 @callback(
     Output("radar-attr-store", "data"),
     Input("vis-radar-attr", "value"),
 )
 def store_radar_attrs(vals):
+    """
+    Persist the current radar attribute selection.
+    """
     return vals or []
 
 
@@ -65,13 +85,15 @@ def store_radar_attrs(vals):
     prevent_initial_call=True,
 )
 def limit_radar_attributes(new_vals, prev_vals):
+    """
+    Enforce a maximum number of radar attributes and show a warning dialog
+    when the limit is exceeded.
+    """
     if not new_vals:
         return new_vals, False
 
     if len(new_vals) > MAX_RADAR_DIMS:
-        # revert + show dialog
+        # Revert to previous selection and display warning
         return prev_vals[:MAX_RADAR_DIMS], True
 
     return new_vals, False
-
-

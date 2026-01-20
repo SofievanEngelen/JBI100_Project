@@ -1,14 +1,31 @@
+from __future__ import annotations
+
 from dash import Input, Output, callback, html
 
 from jbi100_app.data.attributes import ATTRIBUTE_METADATA, attribute_scale
 
+
+# =============================================================================
+# Attribute lookup panel
+# =============================================================================
 
 @callback(
     Output("attr-lookup-panel", "children"),
     Output("attr-lookup-panel", "style"),
     Input("attr-lookup-dd", "value"),
 )
-def update_attribute_lookup(attr):
+def update_attribute_lookup(attr: str | None):
+    """
+    Update the attribute information panel based on the selected attribute.
+
+    Displays metadata including:
+    - display name
+    - unit
+    - category
+    - scale interpretation
+    - description
+    - guidance on how to read the attribute
+    """
     if not attr or attr not in ATTRIBUTE_METADATA.index:
         return None, {"display": "none"}
 
@@ -44,7 +61,6 @@ def update_attribute_lookup(attr):
             ],
             style={"marginBottom": "6px"},
         ),
-
         html.Div(
             f"Scale: {scale_label}",
             style={
@@ -53,10 +69,8 @@ def update_attribute_lookup(attr):
                 "marginBottom": "6px",
             },
         ),
-
         html.Div("Description", style={"fontWeight": "800"}),
         html.Div(row["Description"], style={"marginBottom": "8px"}),
-
         html.Div("How to read", style={"fontWeight": "800"}),
         html.Div(row["Interpretation"]),
     ]
@@ -76,17 +90,27 @@ def update_attribute_lookup(attr):
     )
 
 
+# =============================================================================
+# Theme handling
+# =============================================================================
 
 @callback(
     Output("theme-store", "data"),
     Input("theme-toggle", "value"),
 )
-def set_theme(is_dark):
+def set_theme(is_dark: bool) -> str:
+    """
+    Store the current theme selection.
+    """
     return "dark" if is_dark else "light"
+
 
 @callback(
     Output("root", "data-theme"),
     Input("theme-store", "data"),
 )
-def apply_theme(theme):
+def apply_theme(theme: str) -> str:
+    """
+    Apply the stored theme to the root container.
+    """
     return theme

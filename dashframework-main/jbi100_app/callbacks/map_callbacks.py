@@ -1,23 +1,33 @@
 from __future__ import annotations
 
 import pandas as pd
-from dash import Input, Output, callback, State
+from dash import Input, Output, State, callback
 
 from jbi100_app.data.data_loader import DATA_INFO
 from jbi100_app.plots.map import build_map_figure
-from jbi100_app.data.geo_utils import geo_mask, CONTINENTS, REGIONS, normalise_country_key
+from jbi100_app.data.geo_utils import (
+    geo_mask,
+    CONTINENTS,
+    REGIONS,
+    normalise_country_key,
+)
 
 
-# ============================================================
+# =============================================================================
 # Geo-scope dropdown logic
-# ============================================================
+# =============================================================================
+
 @callback(
     Output("vis-geo-scope-container", "style"),
     Output("vis-geo-scope-dd", "options"),
     Output("vis-geo-scope-dd", "value"),
     Input("vis-geo-scale", "value"),
 )
-def update_geo_scope_dropdown(geo_scale):
+def update_geo_scope_dropdown(geo_scale: str | None):
+    """
+    Update the continent / region scope dropdown based on the selected
+    geographic scale.
+    """
     if geo_scale == "continent":
         opts = sorted(CONTINENTS.keys())
         return (
@@ -37,22 +47,27 @@ def update_geo_scope_dropdown(geo_scale):
     return {"display": "none"}, [], None
 
 
+# =============================================================================
+# Brush helpers
+# =============================================================================
+
 def _raw_countries_from_brush_store(brush_data) -> list[str]:
     """
+    Extract raw country identifiers from the global brush store.
+
     Accepts:
       - None
       - {"countries": [...], "constraints": {...}}
       - {"countries": [...]}  (scatter)
-      - ["Netherlands", ...]  (older)
-    Returns raw strings (un-normalized).
+      - ["Netherlands", ...]  (legacy)
     """
     if brush_data is None:
         return []
 
     if isinstance(brush_data, dict):
-        vals = brush_data.get("countries", [])
-        if isinstance(vals, list):
-            return [str(x) for x in vals if x]
+        values = brush_data.get("countries", [])
+        if isinstance(values, list):
+            return [str(x) for x in values if x]
         return []
 
     if isinstance(brush_data, list):
@@ -61,10 +76,15 @@ def _raw_countries_from_brush_store(brush_data) -> list[str]:
     return []
 
 
-def _brush_countries_for_df(brush_data, df: pd.DataFrame) -> list[str]:
+def _brush_countries_for_df(
+    brush_data,
+    df: pd.DataFrame,
+) -> list[str]:
     """
-    Convert brush store -> list of df['Country'] display names.
-    Uses _CountryKey matching so case/spacing differences don't break filtering.
+    Convert brush-store values into display country names present in df.
+
+    Uses _CountryKey matching so case and spacing differences do not break
+    filtering.
     """
     raw = _raw_countries_from_brush_store(brush_data)
     keys = {normalise_country_key(x) for x in raw}
@@ -73,12 +93,17 @@ def _brush_countries_for_df(brush_data, df: pd.DataFrame) -> list[str]:
     if not keys or df is None or df.empty or "_CountryKey" not in df.columns:
         return []
 
-    return df.loc[df["_CountryKey"].isin(keys), "Country"].astype(str).tolist()
+    return (
+        df.loc[df["_CountryKey"].isin(keys), "Country"]
+        .astype(str)
+        .tolist()
+    )
 
 
-# ============================================================
+# =============================================================================
 # Map update
-# ============================================================
+# =============================================================================
+
 @callback(
     Output("vis-map", "figure"),
     Input("vis-metric", "value"),
@@ -88,7 +113,21 @@ def _brush_countries_for_df(brush_data, df: pd.DataFrame) -> list[str]:
     Input("pcp-brush-store", "data"),
     Input("theme-store", "data"),
 )
-def update_map(metric, geo_scale, geo_scope, selection_store, brush_data, theme):
+def update_map(
+    metric: str | None,
+    geo_scale: str | None,
+    geo_scope,
+    selection_store,
+    brush_data,
+    theme: str,
+):
+    """
+    Update the choropleth map, reflecting:
+      - selected metric
+      - geographic scope (global / continent / region)
+      - PCP or scatter-based brush filters
+      - explicit country selections
+    """
     if DATA_INFO is None or DATA_INFO.empty or metric is None:
         return build_map_figure(
             pd.DataFrame(),
@@ -104,10 +143,10 @@ def update_map(metric, geo_scale, geo_scope, selection_store, brush_data, theme)
     if "_PLOTLY_NAME" not in plot_df.columns:
         plot_df["_PLOTLY_NAME"] = plot_df["Country"]
 
-    # Base geo mask (existing behaviour; requires focus_country arg)
+    # Base geographic mask (existing behaviour)
     base_mask = geo_mask(plot_df, geo_scale or "global", None)
 
-    # Scope mask (controls continent/region focus)
+    # Scope mask (continent / region focus)
     scope_mask = pd.Series(True, index=plot_df.index)
 
     if (geo_scale or "").lower() == "continent" and geo_scope in CONTINENTS:
@@ -120,8 +159,8 @@ def update_map(metric, geo_scale, geo_scope, selection_store, brush_data, theme)
 
     in_mask = base_mask & scope_mask
 
+    # Apply brush filter if present
     brush_countries = _brush_countries_for_df(brush_data, plot_df)
-
     if brush_countries:
         brush_keys = {normalise_country_key(c) for c in brush_countries}
         in_mask = in_mask & plot_df["_CountryKey"].isin(brush_keys)

@@ -5,17 +5,39 @@ import pandas as pd
 import plotly.graph_objects as go
 
 from jbi100_app.plots.common import coerce_numeric
-from jbi100_app.data.constants import COLOR_SCALE, DIVERGING_COLOR_SCALE, SMALL_COUNTRY_AREA_KM2
-from jbi100_app.data.attributes import attribute_display_label, is_diverging_attribute
+from jbi100_app.data.constants import (
+    COLOUR_SCALE,
+    DIVERGING_COLOUR_SCALE,
+    SMALL_COUNTRY_AREA_KM2,
+)
+from jbi100_app.data.attributes import (
+    attribute_display_label,
+    is_diverging_attribute,
+)
 from jbi100_app.state.selection_store import SelectedCountry
+
 
 _TRANSPARENT = "rgba(0,0,0,0)"
 
 
+# =============================================================================
+# Helpers
+# =============================================================================
+
 def _key(name: object) -> str:
+    """
+    Normalise a country name into an uppercase key.
+
+    Used to match against internal country keys.
+    """
     if not isinstance(name, str):
         return ""
     return name.strip().upper()
+
+
+# =============================================================================
+# Map figure
+# =============================================================================
 
 def build_map_figure(
     df: pd.DataFrame,
@@ -26,19 +48,52 @@ def build_map_figure(
     brush_country_keys: list[str] | None = None,
     theme: str = "light",
 ) -> go.Figure:
+    """
+    Build a choropleth world map for a given metric.
 
+    The map supports:
+    - geographic scoping (continent / region)
+    - brushing from other plots
+    - explicit country selection with outline emphasis
+    - diverging and sequential colour scales
+
+    Parameters
+    ----------
+    df:
+        Source dataframe containing country-level data.
+    metric:
+        Attribute to visualise.
+    geo_scale:
+        Current geographic scale.
+    in_mask:
+        Boolean mask indicating which rows are in scope.
+    selection_store:
+        Selected countries with assigned colours.
+    brush_country_keys:
+        Optional list of brushed country keys.
+    theme:
+        Visual theme ("light" or "dark").
+
+    Returns
+    -------
+    go.Figure
+        Configured Plotly map figure.
+    """
     fig = go.Figure()
     template = "plotly_dark" if theme == "dark" else "plotly_white"
 
+    # ------------------------------------------------------------
+    # Theme-aware out-of-scope styling
+    # ------------------------------------------------------------
     if theme == "dark":
-        OUT_OF_SCOPE_FILL = "rgb(31, 31, 31)"  # light grey in dark mode
-        OUT_OF_SCOPE_LINE = "rgba(130,130,130,0.6)"
+        out_of_scope_fill = "rgb(31, 31, 31)"
+        out_of_scope_line = "rgba(130,130,130,0.6)"
     else:
-        OUT_OF_SCOPE_FILL = "white"
-        OUT_OF_SCOPE_LINE = "rgba(180,180,180,0.6)"
+        out_of_scope_fill = "white"
+        out_of_scope_line = "rgba(180,180,180,0.6)"
 
     # ------------------------------------------------------------
-    # Safety
+    # Safety checks
     # ------------------------------------------------------------
     if df is None or df.empty or not metric or metric not in df.columns:
         fig.update_layout(
@@ -72,7 +127,7 @@ def build_map_figure(
                 vmax_abs = 1.0
 
         coloraxis = dict(
-            colorscale="RdBu",
+            colorscale=DIVERGING_COLOUR_SCALE,
             cmin=-vmax_abs,
             cmax=vmax_abs,
             cmid=0,
@@ -102,7 +157,7 @@ def build_map_figure(
                 vmax = float(z_visible.max())
 
         coloraxis = dict(
-            colorscale=COLOR_SCALE,
+            colorscale=COLOUR_SCALE,
             cmin=vmin,
             cmax=vmax,
             colorbar=dict(
@@ -137,7 +192,7 @@ def build_map_figure(
     )
 
     # ------------------------------------------------------------
-    # 2) Out-of-scope / filtered countries → white-out
+    # 2) Out-of-scope countries → white-out overlay
     # ------------------------------------------------------------
     out_mask = ~in_mask
 
@@ -147,24 +202,27 @@ def build_map_figure(
                 locations=plot_df.loc[out_mask, "_PLOTLY_NAME"],
                 locationmode="country names",
                 z=[1] * int(out_mask.sum()),
-                colorscale=[[0, OUT_OF_SCOPE_FILL], [1, OUT_OF_SCOPE_FILL]],
+                colorscale=[
+                    [0, out_of_scope_fill],
+                    [1, out_of_scope_fill],
+                ],
                 showscale=False,
-                marker_line_color=OUT_OF_SCOPE_LINE,
+                marker_line_color=out_of_scope_line,
                 marker_line_width=0.5,
                 hoverinfo="skip",
             )
         )
 
     # ------------------------------------------------------------
-    # 3) Selected countries → outline overlay
+    # 3) Selected countries → outline emphasis
     # ------------------------------------------------------------
     for item in selection_store:
-        cname = item.get("country_name")
-        if not cname:
+        country_name = item.get("country_name")
+        if not country_name:
             continue
 
-        ck = _key(cname)
-        row = plot_df.loc[plot_df["_CountryKey"] == ck]
+        country_key = _key(country_name)
+        row = plot_df.loc[plot_df["_CountryKey"] == country_key]
         if row.empty:
             continue
 
@@ -172,24 +230,29 @@ def build_map_figure(
         plotly_name = row.get("_PLOTLY_NAME")
         iso3 = row.get("_ISO3")
 
+        # Geographic scope
         in_geo = True
         if in_mask is not None:
-            m = plot_df["_CountryKey"] == ck
+            m = plot_df["_CountryKey"] == country_key
             if m.any():
                 in_geo = bool(in_mask.loc[m].iloc[0])
 
-        in_filter = (not brush_set) or (ck in brush_set)
+        # Brush scope
+        in_filter = (not brush_set) or (country_key in brush_set)
         in_scope = in_geo and in_filter
 
-        outline_color = (
+        outline_colour = (
             item["colour_rgb"]
             if in_scope
             else item["colour_rgb_light"]
         )
 
         area = pd.to_numeric(row.get("land_area_km2"), errors="coerce")
-        is_small = bool(np.isfinite(area) and area < SMALL_COUNTRY_AREA_KM2)
+        is_small = bool(
+            np.isfinite(area) and area < SMALL_COUNTRY_AREA_KM2
+        )
 
+        # Small countries → point outline
         if is_small and isinstance(iso3, str):
             fig.add_trace(
                 go.Scattergeo(
@@ -199,21 +262,25 @@ def build_map_figure(
                     marker=dict(
                         size=12,
                         color=_TRANSPARENT,
-                        line=dict(width=2.2, color=outline_color),
+                        line=dict(width=2.2, color=outline_colour),
                     ),
                     hoverinfo="skip",
                     showlegend=False,
                 )
             )
         else:
+            # Normal countries → boundary outline
             fig.add_trace(
                 go.Choropleth(
                     locations=[plotly_name],
                     locationmode="country names",
                     z=[1],
-                    colorscale=[[0, _TRANSPARENT], [1, _TRANSPARENT]],
+                    colorscale=[
+                        [0, _TRANSPARENT],
+                        [1, _TRANSPARENT],
+                    ],
                     showscale=False,
-                    marker_line_color=outline_color,
+                    marker_line_color=outline_colour,
                     marker_line_width=2.8 if in_scope else 1.8,
                     hoverinfo="skip",
                 )
@@ -225,11 +292,11 @@ def build_map_figure(
     fig.update_layout(
         template=template,
         margin=dict(l=0, r=0, t=30, b=0),
-        geo=dict(showframe=False, showcoastlines=False),
+        geo=dict(
+            showframe=False,
+            showcoastlines=False,
+        ),
         coloraxis=coloraxis,
     )
 
     return fig
-
-
-

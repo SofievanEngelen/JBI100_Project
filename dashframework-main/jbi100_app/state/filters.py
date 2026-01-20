@@ -6,31 +6,40 @@ from typing import Any
 import pandas as pd
 
 
+# Matches Plotly parcoords constraintrange keys such as:
+#   dimensions[0].constraintrange
 _CONSTRAINT_KEY_RE = re.compile(r"^dimensions\[(\d+)\]\.constraintrange$")
 
 
-def parse_parcoords_constraintrange_patch(restyle_data: Any) -> tuple[dict[str, list[list[float]]], bool]:
+def parse_parcoords_constraintrange_patch(
+    restyle_data: Any,
+) -> tuple[dict[str, list[list[float]]], bool]:
     """
-    Parse Plotly Parcoords restyleData into an incremental constraintrange PATCH.
+    Parse Plotly Parcoords restyleData into an incremental constraintrange patch.
 
     Returns:
-      (patch, saw_constraint_key)
+        (patch, saw_constraint_key)
 
-    patch schema (JSON friendly), keyed by dimension INDEX as string:
-      { "<dim_idx>": [[lo, hi], [lo2, hi2], ...] }
+    Patch schema (JSON-friendly), keyed by dimension INDEX as a string:
+        { "<dim_idx>": [[lo, hi], [lo2, hi2], ...] }
 
-    If a constraint was cleared for a dimension, patch will contain:
-      { "<dim_idx>": [] }
+    If a constraint was cleared for a dimension, the patch will contain:
+        { "<dim_idx>": [] }
 
     saw_constraint_key is False if the restyle event did NOT include any
-    dimensions[i].constraintrange keys (so you can ignore it).
+    dimensions[i].constraintrange keys (so it can be safely ignored).
     """
     if not restyle_data:
         return {}, False
 
-    # restyleData is typically: [update_dict, trace_indexes]
-    update = None
-    if isinstance(restyle_data, (list, tuple)) and len(restyle_data) >= 1 and isinstance(restyle_data[0], dict):
+    # restyleData is typically: [update_dict, trace_indices]
+    update: dict[str, Any] | None = None
+
+    if (
+        isinstance(restyle_data, (list, tuple))
+        and len(restyle_data) >= 1
+        and isinstance(restyle_data[0], dict)
+    ):
         update = restyle_data[0]
     elif isinstance(restyle_data, dict):
         update = restyle_data
@@ -38,24 +47,24 @@ def parse_parcoords_constraintrange_patch(restyle_data: Any) -> tuple[dict[str, 
         return {}, False
 
     patch: dict[str, list[list[float]]] = {}
-    saw = False
+    saw_constraint_key = False
 
-    for k, v in update.items():
-        m = _CONSTRAINT_KEY_RE.match(str(k))
-        if not m:
+    for key, value in update.items():
+        match = _CONSTRAINT_KEY_RE.match(str(key))
+        if not match:
             continue
 
-        saw = True
-        dim_idx = str(int(m.group(1)))
+        saw_constraint_key = True
+        dim_idx = str(int(match.group(1)))
 
-        # Cleared
-        if v is None or v == []:
+        # Constraint cleared
+        if value is None or value == []:
             patch[dim_idx] = []
             continue
 
-        ranges = v
+        ranges = value
 
-        # Common extra nesting: [[[lo, hi]]] -> [[lo, hi]]
+        # Common extra nesting: [[[lo, hi]]] → [[lo, hi]]
         if (
             isinstance(ranges, list)
             and len(ranges) == 1
@@ -66,23 +75,29 @@ def parse_parcoords_constraintrange_patch(restyle_data: Any) -> tuple[dict[str, 
         ):
             ranges = ranges[0]
 
-        parsed: list[list[float]] = []
+        parsed_ranges: list[list[float]] = []
+
         if isinstance(ranges, (list, tuple)):
             for r in ranges:
-                if isinstance(r, (list, tuple)) and len(r) == 2:
-                    lo, hi = r
-                    try:
-                        lo_f = float(lo)
-                        hi_f = float(hi)
-                    except Exception:
-                        continue
-                    if hi_f < lo_f:
-                        lo_f, hi_f = hi_f, lo_f
-                    parsed.append([lo_f, hi_f])
+                if not (isinstance(r, (list, tuple)) and len(r) == 2):
+                    continue
 
-        patch[dim_idx] = parsed
+                lo, hi = r
+                try:
+                    lo_f = float(lo)
+                    hi_f = float(hi)
+                except Exception:
+                    continue
 
-    return patch, saw
+                # Ensure lo <= hi
+                if hi_f < lo_f:
+                    lo_f, hi_f = hi_f, lo_f
+
+                parsed_ranges.append([lo_f, hi_f])
+
+        patch[dim_idx] = parsed_ranges
+
+    return patch, saw_constraint_key
 
 
 def countries_from_parcoords_constraints(
@@ -91,14 +106,15 @@ def countries_from_parcoords_constraints(
     constraints: dict[str, list[list[float]]],
 ) -> list[str]:
     """
-    Apply accumulated parcoords constraints across ALL constrained dimensions.
+    Apply accumulated Parallel Coordinates constraints across all dimensions.
 
-    UPDATED:
-    - constraints are keyed by DIMENSION NAME (column name), not index.
-      { "gdp_per_capita_usd": [[0.2,0.4]], "unemployment_pct": [[0.1,0.3]] }
+    Notes:
+    - Constraints are keyed by DIMENSION NAME (column name), not index:
+        { "gdp_per_capita_usd": [[0.2, 0.4]] }
 
-    - work_df must contain "Country" and the dimension columns in the PCP's order.
-    - values should be normalized to 0..1 (because constraintrange is in displayed scale).
+    - work_df must contain a "Country" column and the constrained dimensions.
+    - Values are expected to be normalised to 0..1, as constraintrange
+      operates on the displayed (scaled) values.
     """
     if work_df is None or work_df.empty or "Country" not in work_df.columns:
         return []
@@ -110,41 +126,48 @@ def countries_from_parcoords_constraints(
         return []
 
     mask = pd.Series(True, index=work_df.index)
-    any_active = False
+    any_constraint_active = False
 
     for col, ranges in constraints.items():
         if not ranges:
             continue
-        col = str(col)
 
+        col = str(col)
         if col not in work_df.columns:
             continue
 
-        any_active = True
-        col_vals = work_df[col]
+        any_constraint_active = True
+        col_values = work_df[col]
 
-        # OR within dimension across disjoint ranges
-        dim_ok = pd.Series(False, index=work_df.index)
+        # OR within a dimension across disjoint ranges
+        dim_mask = pd.Series(False, index=work_df.index)
         for lo, hi in ranges:
-            dim_ok = dim_ok | ((col_vals >= lo) & (col_vals <= hi))
+            dim_mask = dim_mask | ((col_values >= lo) & (col_values <= hi))
 
         # AND across dimensions
-        mask = mask & dim_ok
+        mask = mask & dim_mask
 
-    if not any_active:
+    if not any_constraint_active:
         return []
 
     return work_df.loc[mask, "Country"].astype(str).tolist()
 
 
-def apply_temp_region_filter(df: pd.DataFrame, temp_region_countries: list[str] | None) -> pd.DataFrame:
+def apply_temp_region_filter(
+    df: pd.DataFrame,
+    temp_region_countries: list[str] | None,
+) -> pd.DataFrame:
     """
-    If temp_region_countries is provided, filter df to those countries.
-    Otherwise return df unchanged.
+    Apply a temporary region filter to the DataFrame.
+
+    If temp_region_countries is provided, only those countries are retained.
+    Otherwise, the DataFrame is returned unchanged.
     """
     if df is None or df.empty:
         return df
+
     if not temp_region_countries:
         return df
-    s = set(str(x) for x in temp_region_countries if x)
-    return df[df["Country"].astype(str).isin(s)].copy()
+
+    allowed = {str(x) for x in temp_region_countries if x}
+    return df[df["Country"].astype(str).isin(allowed)].copy()

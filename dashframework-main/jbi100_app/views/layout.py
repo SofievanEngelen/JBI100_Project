@@ -1,30 +1,30 @@
 from __future__ import annotations
 
+from typing import Any
+
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 
 from jbi100_app.views.menu import layout as menu_layout
 from jbi100_app.data.data_loader import DATA_INFO, ALL_COUNTRIES
-from jbi100_app.data.attributes import attribute_display_label, all_numeric_attributes
+from jbi100_app.data.attributes import (
+    attribute_display_label,
+    all_numeric_attributes,
+)
 
+# =============================================================================
+# Helpers
+# =============================================================================
 
-def _numeric_attribute_values() -> list[str]:
-    if DATA_INFO is None or getattr(DATA_INFO, "empty", True):
-        return []
-    exclude = {"Country", "_CountryKey", "Continent", "Region"}
-    cols = []
-    for c in list(DATA_INFO.columns):
-        if c in exclude:
-            continue
-        try:
-            if DATA_INFO[c].dtype.kind in "if":
-                cols.append(c)
-        except Exception:
-            continue
-    return sorted(set(cols), key=lambda s: str(s).lower())
-
-
-def _card(children, style_extra=None, class_name: str | None = None):
+def _card(
+    children: Any,
+    *,
+    style_extra: dict[str, Any] | None = None,
+    class_name: str | None = None,
+) -> html.Div:
+    """
+    Generic card wrapper used for sidebar containers.
+    """
     style = {
         "background": "var(--bg-card)",
         "borderRadius": "14px",
@@ -33,11 +33,70 @@ def _card(children, style_extra=None, class_name: str | None = None):
         "padding": "12px",
         "minHeight": 0,
     }
+
     if style_extra:
         style.update(style_extra)
+
     return html.Div(style=style, children=children, className=class_name)
 
-def _panel(children, style_extra=None):
+
+def _onboarding_card(title: str, text: str, icon: str) -> html.Div:
+    """
+    Small feature card used inside the onboarding modal.
+    """
+    return html.Div(
+        style={
+            "background": "white",
+            "borderRadius": "14px",
+            "padding": "16px",
+            "boxShadow": "0 10px 22px rgba(0,0,0,0.06)",
+            "border": "1px solid rgba(148,163,184,0.25)",
+            "display": "flex",
+            "gap": "10px",
+            "alignItems": "center",
+            "justifyContent": "center",
+            "minHeight": "100px",
+        },
+        children=[
+            html.Div(
+                [
+                    html.Div(
+                        title,
+                        style={
+                            "fontWeight": "800",
+                            "fontSize": "15px",
+                            "marginBottom": "4px",
+                        },
+                    ),
+                    html.Div(
+                        text,
+                        style={
+                            "fontSize": "13px",
+                            "color": "#475569",
+                            "lineHeight": "1.35",
+                        },
+                    ),
+                ]
+            ),
+            html.Div(
+                icon,
+                style={
+                    "fontSize": "26px",
+                    "lineHeight": "1",
+                },
+            ),
+        ],
+    )
+
+
+def _panel(
+    children: Any,
+    *,
+    style_extra: dict[str, Any] | None = None,
+) -> html.Div:
+    """
+    Main visualisation panel container (grey background).
+    """
     style = {
         "height": "100%",
         "background": "var(--bg-panel)",
@@ -50,11 +109,21 @@ def _panel(children, style_extra=None):
         "minHeight": 0,
         "border": "1px solid var(--border)",
     }
+
     if style_extra:
         style.update(style_extra)
+
     return html.Div(style=style, children=children)
 
-def _plot_wrap(children, style_extra=None):
+
+def _plot_wrap(
+    children: Any,
+    *,
+    style_extra: dict[str, Any] | None = None,
+) -> html.Div:
+    """
+    White inner container that wraps Plotly graphs.
+    """
     style = {
         "background": "var(--bg-card)",
         "borderRadius": "12px",
@@ -64,22 +133,32 @@ def _plot_wrap(children, style_extra=None):
         "minHeight": 0,
         "border": "1px solid var(--border)",
     }
+
     if style_extra:
         style.update(style_extra)
+
     return html.Div(style=style, children=children)
 
-_ALL_ATTRS = all_numeric_attributes(DATA_INFO)
 
-options = [
+# =============================================================================
+# Shared constants
+# =============================================================================
+
+_ALL_ATTRS: list[str] = all_numeric_attributes(DATA_INFO)
+
+ATTRIBUTE_OPTIONS = [
     {"label": attribute_display_label(a), "value": a}
-    for a in sorted(
-        _ALL_ATTRS,
-        key=lambda a: attribute_display_label(a).lower(),
-    )
+    for a in sorted(_ALL_ATTRS, key=lambda a: attribute_display_label(a).lower())
 ]
 
-PLOT_CONFIG = {"displayModeBar": False, "responsive": True}
+PLOT_CONFIG = {
+    "displayModeBar": False,
+    "responsive": True,
+}
 
+# =============================================================================
+# Layout
+# =============================================================================
 
 layout = html.Div(
     id="root",
@@ -93,7 +172,14 @@ layout = html.Div(
         "color": "var(--text-main)",
     },
     children=[
+        # ─────────────────────────────────────────────────────────────
+        # Top navigation bar
+        # ─────────────────────────────────────────────────────────────
         menu_layout(),
+
+        # ─────────────────────────────────────────────────────────────
+        # Main app grid
+        # ─────────────────────────────────────────────────────────────
         html.Div(
             id="app-root",
             style={
@@ -102,13 +188,12 @@ layout = html.Div(
                 "gridTemplateColumns": "275px 1fr",
                 "gap": "12px",
                 "minHeight": 0,
-                "marginTop": "12px"
-                # "overflow": "hidden",
+                "marginTop": "12px",
             },
             children=[
-                # =========================
+                # ======================================================
                 # Sidebar
-                # =========================
+                # ======================================================
                 _card(
                     class_name="sidebar-card",
                     style_extra={
@@ -119,24 +204,47 @@ layout = html.Div(
                         "minHeight": 0,
                     },
                     children=[
-                        # Popups
+                        # ── Popups
                         dcc.ConfirmDialog(id="vis-country-limit-dialog", message="", displayed=False),
                         dcc.ConfirmDialog(id="vis-attr-limit-dialog", message="", displayed=False),
 
+                        # ── Title
                         html.Div(
                             "Visualization Tool",
-                            style={"fontSize": "16px", "fontWeight": "900", "color": "var(--text-main)", "marginBottom": "6px"},
+                            style={
+                                "fontSize": "16px",
+                                "fontWeight": "900",
+                                "marginBottom": "6px",
+                            },
                         ),
-                        html.Div("Select Country (max 6)", style={"fontSize": "11px", "fontWeight": "800", "color": "var(--text-muted)"}),
+
+                        # ── Country selection
+                        html.Div(
+                            "Select Country (max 6)",
+                            style={
+                                "fontSize": "11px",
+                                "fontWeight": "800",
+                                "color": "var(--text-muted)",
+                            },
+                        ),
                         dcc.Dropdown(
                             id="vis-country",
-                            style={"paddingBottom": "10px"},
                             options=[],
                             value=[],
                             multi=True,
                             placeholder="Find country",
+                            style={"paddingBottom": "10px"},
                         ),
-                        html.Div("Select Scale", style={"fontSize": "11px", "fontWeight": "800", "color": "var(--text-muted)"}),
+
+                        # ── Geo scale
+                        html.Div(
+                            "Select Scale",
+                            style={
+                                "fontSize": "11px",
+                                "fontWeight": "800",
+                                "color": "var(--text-muted)",
+                            },
+                        ),
                         dcc.RadioItems(
                             id="vis-geo-scale",
                             value="global",
@@ -148,24 +256,43 @@ layout = html.Div(
                             style={"marginTop": "4px", "marginBottom": "6px"},
                             inputStyle={"marginRight": "8px"},
                         ),
+
+                        # ── Geo scope dropdown (conditional)
                         html.Div(
                             id="vis-geo-scope-container",
-                            style={"marginTop": "6px", "display": "none", "marginBottom": "6px"},
+                            style={"display": "none", "marginBottom": "6px"},
                             children=[
-                                html.Div("Visible area", style={"fontSize": "11px", "fontWeight": "800", "color": "var(--text-muted)"}),
+                                html.Div(
+                                    "Visible area",
+                                    style={
+                                        "fontSize": "11px",
+                                        "fontWeight": "800",
+                                        "color": "var(--text-muted)",
+                                    },
+                                ),
                                 dcc.Dropdown(
                                     id="vis-geo-scope-dd",
                                     options=[],
                                     value=None,
                                     clearable=False,
                                     placeholder="Select continent / region",
-                                    style={"marginBottom": "6px"},
                                 ),
                             ],
                         ),
-                        html.Div(id="vis-warnings", style={"fontSize": "11px", "color": "var(--danger)"}),
-                        html.Button("Clear filter", id="vis-clear-all", n_clicks=0, style={"width": "100%", "marginBottom": "6px"}),
+
+                        # ── Warnings & reset
+                        html.Div(id="vis-warnings", style={"fontSize": "11px"}),
+                        html.Button(
+                            "Clear filter",
+                            id="vis-clear-all",
+                            className="clear-filter-btn",
+                            n_clicks=0,
+                            style={"width": "100%", "marginBottom": "6px"},
+                        ),
+
                         html.Hr(style={"margin": "8px 0"}),
+
+                        # ── Attribute lookup
                         html.Div(
                             "Understand Attributes",
                             style={
@@ -175,14 +302,10 @@ layout = html.Div(
                                 "marginBottom": "6px",
                             },
                         ),
-
                         dcc.Dropdown(
                             id="attr-lookup-dd",
                             options=[
-                                {
-                                    "label": attribute_display_label(a),
-                                    "value": a,
-                                }
+                                {"label": attribute_display_label(a), "value": a}
                                 for a in sorted(
                                     all_numeric_attributes(DATA_INFO),
                                     key=lambda a: attribute_display_label(a).lower(),
@@ -191,7 +314,6 @@ layout = html.Div(
                             placeholder="Search attribute",
                             clearable=True,
                         ),
-
                         html.Div(
                             id="attr-lookup-panel",
                             style={
@@ -201,13 +323,11 @@ layout = html.Div(
                                 "borderRadius": "10px",
                                 "background": "var(--bg-card)",
                                 "fontSize": "12px",
-                                "color": "var(--text-main)",
                                 "display": "none",
                             },
                         ),
 
-
-                        # stores
+                        # ── Stores
                         dcc.Store(id="pcp-brush-store", data=None),
                         dcc.Store(id="vis-selection-store", data=[]),
                         dcc.Store(id="pcp-dims-store", data=None),
@@ -216,9 +336,9 @@ layout = html.Div(
                     ],
                 ),
 
-                # =========================
-                # Main area
-                # =========================
+                # ======================================================
+                # Main visualization area
+                # ======================================================
                 html.Div(
                     style={
                         "height": "100%",
@@ -228,7 +348,7 @@ layout = html.Div(
                         "minHeight": 0,
                     },
                     children=[
-                        # Top row
+                        # ── Top row (Map + Right panel)
                         html.Div(
                             style={
                                 "display": "grid",
@@ -237,40 +357,56 @@ layout = html.Div(
                                 "minHeight": 0,
                             },
                             children=[
+                                # Map panel
                                 _panel(
                                     children=[
                                         html.Div(
-                                            style={"display": "flex", "justifyContent": "space-between", "alignItems": "center", "gap": "12px"},
+                                            style={
+                                                "display": "flex",
+                                                "justifyContent": "space-between",
+                                                "alignItems": "center",
+                                                "gap": "12px",
+                                            },
                                             children=[
-                                                html.Div("Map", style={"fontSize": "18px", "fontWeight": "900", "color": "var(--text-main)"}),
+                                                html.Div(
+                                                    "Map",
+                                                    style={"fontSize": "18px", "fontWeight": "900"},
+                                                ),
                                                 dcc.Dropdown(
                                                     id="vis-metric",
-                                                    options=options,
+                                                    options=ATTRIBUTE_OPTIONS,
                                                     value=_ALL_ATTRS[0] if _ALL_ATTRS else None,
                                                     clearable=False,
-                                                    placeholder="Select Attribute",
-                                                    style={"width": "400px",
-                                                           "marginLeft": "0"
-                                                           },
+                                                    style={"width": "400px"},
                                                 ),
                                             ],
                                         ),
                                         _plot_wrap(
-                                            dcc.Graph(id="vis-map", config=PLOT_CONFIG, style={"height": "100%", "width": "100%"})
+                                            dcc.Graph(
+                                                id="vis-map",
+                                                config=PLOT_CONFIG,
+                                                style={"height": "100%", "width": "100%"},
+                                            )
                                         ),
                                     ],
                                 ),
+
+                                # Right visualization panel
                                 _panel(
                                     style_extra={"maxWidth": "50%"},
                                     children=[
+                                        # Title + viz selector
                                         html.Div(
-                                            [
+                                            style={
+                                                "display": "flex",
+                                                "alignItems": "center",
+                                            },
+                                            children=[
                                                 html.Div(
                                                     "Select Visualisation",
                                                     style={
                                                         "fontSize": "18px",
                                                         "fontWeight": "900",
-                                                        "margin": "0",
                                                         "whiteSpace": "nowrap",
                                                     },
                                                 ),
@@ -284,72 +420,58 @@ layout = html.Div(
                                                     ],
                                                     value="scatter",
                                                     clearable=False,
-                                                    style={
-                                                        "minWidth": "220px",
-                                                        "marginLeft": "auto",
-                                                    },
+                                                    style={"minWidth": "220px", "marginLeft": "auto"},
                                                 ),
                                             ],
-                                            style={
-                                                "display": "flex",
-                                                "alignItems": "center",
-                                                # "gap": "12px",
-                                                # "marginBottom": "12px",
-                                            },
                                         ),
+
+                                        # Controls (shown/hidden by callbacks)
                                         html.Div(
                                             id="vis-controls-scatter",
-                                            style={"display": "grid", "gridTemplateColumns": "1fr 1fr", "gap": "14px"},
+                                            style={
+                                                "display": "grid",
+                                                "gridTemplateColumns": "1fr 1fr",
+                                                "gap": "14px",
+                                            },
                                             children=[
-                                                dcc.Dropdown(id="vis-scatter-x", options=[], placeholder="Attribute 1", clearable=False),
-                                                dcc.Dropdown(id="vis-scatter-y", options=[], placeholder="Attribute 2", clearable=False),
+                                                dcc.Dropdown(id="vis-scatter-x", options=[], clearable=False),
+                                                dcc.Dropdown(id="vis-scatter-y", options=[], clearable=False),
                                             ],
                                         ),
+
                                         html.Div(
                                             id="vis-controls-hist",
-                                            style={"display": "none", "gridTemplateColumns": "1fr 1fr", "gap": "18px", "alignItems": "center"},
+                                            style={
+                                                "display": "none",
+                                                "gridTemplateColumns": "1fr 1fr",
+                                                "gap": "18px",
+                                                "alignItems": "center",
+                                            },
                                             children=[
-                                                dcc.Dropdown(id="vis-hist-attr", options=[], placeholder="Attribute", clearable=False),
-                                                html.Div(
-                                                    style={"position": "relative", "paddingTop": "34px"},
-                                                    children=[
-                                                        html.Div(
-                                                            "Bin size",
-                                                            style={
-                                                                "position": "absolute",
-                                                                "top": "0px",
-                                                                "left": "50%",
-                                                                "transform": "translateX(-50%)",
-                                                                "fontSize": "14px",
-                                                                "fontWeight": "800",
-                                                                "color": "var(--text-main)",
-                                                                "pointerEvents": "none",
-                                                            },
-                                                        ),
-                                                        dcc.Slider(
-                                                            id="vis-hist-bins",
-                                                            min=5,
-                                                            max=60,
-                                                            step=1,
-                                                            value=32,
-                                                            marks={5: "5", 60: "60"},
-                                                            included=False,
-                                                            tooltip={"placement": "top"},
-                                                        ),
-                                                    ],
+                                                dcc.Dropdown(id="vis-hist-attr", options=[], clearable=False),
+                                                dcc.Slider(
+                                                    id="vis-hist-bins",
+                                                    min=5,
+                                                    max=60,
+                                                    step=1,
+                                                    value=32,
+                                                    marks={5: "5", 60: "60"},
+                                                    included=False,
                                                 ),
                                             ],
                                         ),
+
                                         html.Div(
                                             id="vis-controls-violin",
                                             style={"display": "none"},
-                                            children=[dcc.Dropdown(id="vis-violin-attr", options=[], placeholder="Attribute", clearable=False)],
+                                            children=[
+                                                dcc.Dropdown(id="vis-violin-attr", options=[], clearable=False)
+                                            ],
                                         ),
+
                                         html.Div(
                                             id="vis-controls-radar",
-                                            style={
-                                                "marginTop": "8px",
-                                            },
+                                            style={"marginTop": "8px"},
                                             children=[
                                                 dcc.Dropdown(
                                                     id="vis-radar-attr",
@@ -373,36 +495,43 @@ layout = html.Div(
                                                 )
                                             ],
                                         ),
+
+                                        # Plots
                                         _plot_wrap(
                                             children=[
                                                 html.Div(
                                                     id="vis-right-wrap-scatter",
-                                                    style={"height": "100%", "minHeight": 0},
-                                                    children=dcc.Graph(id="vis-scatter-plot", config=PLOT_CONFIG, style={"height": "100%", "width": "100%"}),
+                                                    children=dcc.Graph(
+                                                        id="vis-scatter-plot",
+                                                        config=PLOT_CONFIG,
+                                                    ),
                                                 ),
                                                 html.Div(
                                                     id="vis-right-wrap-hist",
-                                                    style={"height": "100%", "minHeight": 0, "display": "none"},
-                                                    children=dcc.Graph(id="vis-filter-plot", config=PLOT_CONFIG, style={"height": "100%", "width": "100%"}),
+                                                    style={"display": "none"},
+                                                    children=dcc.Graph(
+                                                        id="vis-filter-plot",
+                                                        config=PLOT_CONFIG,
+                                                    ),
                                                 ),
                                                 html.Div(
                                                     id="vis-right-wrap-violin",
-                                                    style={"height": "100%", "minHeight": 0, "display": "none"},
-                                                    children=dcc.Graph(id="vis-violin-plot", config=PLOT_CONFIG, style={"height": "100%", "width": "100%"}),
+                                                    style={"display": "none"},
+                                                    children=dcc.Graph(
+                                                        id="vis-violin-plot",
+                                                        config=PLOT_CONFIG,
+                                                    ),
                                                 ),
                                                 html.Div(
                                                     id="vis-right-wrap-radar",
-                                                    style={"height": "100%", "minHeight": 0},
-                                                    children=[dcc.Graph(
-                                                            id="vis-radar-plot",
-                                                            config=PLOT_CONFIG,
-                                                            style={"height": "100%", "width": "100%"},
-                                                        ),
-                                                    ],
+                                                    children=dcc.Graph(
+                                                        id="vis-radar-plot",
+                                                        config=PLOT_CONFIG,
+                                                    ),
                                                 ),
                                                 dcc.ConfirmDialog(
-                                                id="radar-max-dims-dialog",
-                                                message="You can select a maximum of 8 attributes for the Radar Plot.",
+                                                    id="radar-max-dims-dialog",
+                                                    message="You can select a maximum of 8 attributes for the Radar Plot.",
                                                 ),
                                             ]
                                         ),
@@ -411,7 +540,7 @@ layout = html.Div(
                             ],
                         ),
 
-                        # Bottom row: PCP
+                        # ── Bottom row: Parallel Coordinates Plot
                         _panel(
                             children=[
                                 dcc.ConfirmDialog(
@@ -428,39 +557,31 @@ layout = html.Div(
                                         "alignItems": "center",
                                     },
                                     children=[
-                                        # ── Title (top-left)
                                         html.Div(
                                             "Parallel Coordinates",
-                                            style={
-                                                "fontSize": "18px",
-                                                "fontWeight": "900",
-                                                "color": "var(--text-main)",
-                                            },
+                                            style={"fontSize": "18px", "fontWeight": "900"},
                                         ),
-
-                                        # ── Dropdown (right, spans both rows)
-                                        html.Div(
-                                            dcc.Dropdown(
-                                                id="pcp-attr-dd",
-                                                options=[
-                                                    {"label": attribute_display_label(a, include_category=False,
-                                                                                      include_unit=False), "value": a}
-                                                    for a in sorted(
-                                                        all_numeric_attributes(DATA_INFO),
-                                                        key=lambda a: attribute_display_label(a).lower(),
-                                                    )
-                                                ],
-                                                value=[],  # filled by callback
-                                                multi=True,
-                                                placeholder="Select PCP attributes (max 8)",
-                                                style={
-                                                    "minWidth": "520px",
-                                                    "maxWidth": "800px",
-                                                },
-                                            ),
+                                        dcc.Dropdown(
+                                            id="pcp-attr-dd",
+                                            options=[
+                                                {
+                                                    "label": attribute_display_label(
+                                                        a,
+                                                        include_category=False,
+                                                        include_unit=False,
+                                                    ),
+                                                    "value": a,
+                                                }
+                                                for a in sorted(
+                                                    all_numeric_attributes(DATA_INFO),
+                                                    key=lambda a: attribute_display_label(a).lower(),
+                                                )
+                                            ],
+                                            value=[],
+                                            multi=True,
+                                            placeholder="Select PCP attributes (max 8)",
+                                            style={"minWidth": "520px", "maxWidth": "800px"},
                                         ),
-
-                                        # ── Toggles (bottom-left)
                                         html.Div(
                                             style={
                                                 "display": "flex",
@@ -473,122 +594,162 @@ layout = html.Div(
                                                     id="vis-pcp-color-first-axis",
                                                     options=[{"label": "Colour by 1st axis", "value": "on"}],
                                                     value=[],
-                                                    inputStyle={"marginRight": "6px"},
                                                 ),
                                                 dcc.Checklist(
                                                     id="vis-pcp-selected-only",
                                                     options=[{"label": "Selected only", "value": "on"}],
                                                     value=[],
-                                                    inputStyle={"marginRight": "6px"},
                                                 ),
                                             ],
                                         ),
                                     ],
                                 ),
-
                                 _plot_wrap(
-                                    dcc.Graph(id="vis-pcp",
-                                              config=PLOT_CONFIG,
-                                              style={"height": "100%", "width": "100%"})
+                                    dcc.Graph(id="vis-pcp", config=PLOT_CONFIG)
                                 ),
-
                             ],
                         ),
                     ],
                 ),
             ],
         ),
+
+        # ─────────────────────────────────────────────────────────────
+        # Onboarding modal
+        # ─────────────────────────────────────────────────────────────
         dbc.Modal(
             id="onboarding-modal",
             is_open=True,
             centered=True,
-            size="lg",
+            size="xl",
             backdrop=True,
             className="onboarding-modal",
             children=[
-                dbc.ModalHeader(
-                    dbc.ModalTitle("Welcome to the MUN Digital Debate Coach")
-                ),
-
                 dbc.ModalBody(
+                    style={
+                        "padding": "32px",
+                        "background": "linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)",
+                        "borderRadius": "18px",
+                    },
                     children=[
-                        html.P(
-                            "This tool serves as a MUN digital debate coach. "
-                            "It helps you turn scattered country indicators into "
-                            "comparable, citable, argument-ready evidence—directly "
-                            "supporting your position paper, speeches, and negotiation strategy.",
-                            style={"marginBottom": "14px"},
+                        html.Div(
+                            style={"textAlign": "center", "marginBottom": "28px"},
+                            children=[
+                                html.H1(
+                                    "MUN Digital Debate Coach",
+                                    style={"fontWeight": "900", "fontSize": "36px"},
+                                ),
+                                html.P(
+                                    [
+                                        "Turn country-level indicators into ",
+                                        html.Strong("clear, comparable, argument-ready"),
+                                        " evidence for MUN debates.",
+                                    ],
+                                    style={
+                                        "fontSize": "16px",
+                                        "color": "#475569",
+                                        "maxWidth": "720px",
+                                        "margin": "0 auto",
+                                    },
+                                ),
+                            ],
                         ),
 
                         html.Div(
-                            "What you can do with it",
                             style={
-                                "fontWeight": "800",
-                                "marginTop": "12px",
-                                "marginBottom": "6px",
+                                "display": "grid",
+                                "gridTemplateColumns": "repeat(6, 1fr)",
+                                "gap": "18px",
+                                "marginBottom": "22px",
                             },
-                        ),
-
-                        html.Ul(
                             children=[
-                                html.Li(
-                                    "Sketch a country profile: Quickly understand your assigned "
-                                    "country’s status on key indicators, and where it stands globally "
-                                    "or within its region."
+                                html.Div(
+                                    _onboarding_card(
+                                        "Country Profile",
+                                        "Quickly understand your country’s global and regional position",
+                                        "🌍",
+                                    ),
+                                    style={"gridColumn": "span 2"},
                                 ),
-                                html.Li(
-                                    "Build comparative arguments: Compare countries within the same "
-                                    "region or continent and generate claims like “above / below the "
-                                    "regional average.”"
+                                html.Div(
+                                    _onboarding_card(
+                                        "Compare Countries",
+                                        "See whether indicators are above or below regional averages",
+                                        "📊",
+                                    ),
+                                    style={"gridColumn": "span 2"},
                                 ),
-                                html.Li(
-                                    "Stress-test your stance: View multiple indicators together to "
-                                    "identify strengths, weaknesses, and trade-offs—so you avoid "
-                                    "making claims that clearly conflict with data."
+                                html.Div(
+                                    _onboarding_card(
+                                        "Stress-test Claims",
+                                        "Reveal trade-offs and contradictions across indicators",
+                                        "⚖️",
+                                    ),
+                                    style={"gridColumn": "span 2"},
                                 ),
-                                html.Li(
-                                    "Identify allies and opponents: Use multi-indicator similarity to "
-                                    "spot likely allies and key counterparts to challenge, supporting "
-                                    "coalition-building and negotiation."
+                                html.Div(
+                                    _onboarding_card(
+                                        "Identify Allies",
+                                        "Find countries with similar multi-indicator profiles",
+                                        "🤝",
+                                    ),
+                                    style={"gridColumn": "span 3"},
                                 ),
-                                html.Li(
-                                    "Spot data vulnerabilities: Quickly detect unusual or inconsistent "
-                                    "indicators in other countries for questioning and rebuttal."
+                                html.Div(
+                                    _onboarding_card(
+                                        "Spot Data Weaknesses",
+                                        "Detect unusual or inconsistent indicators for rebuttal",
+                                        "🔍",
+                                    ),
+                                    style={"gridColumn": "span 3"},
                                 ),
                             ],
-                            style={"marginBottom": "18px"},
                         ),
 
-                        html.Hr(),
-
-                        html.Label(
-                            "Select your host country",
-                            style={
-                                "fontWeight": "800",
-                                "marginTop": "10px",
-                                "marginBottom": "6px",
-                            },
+                        html.Div(
+                            style={"margin": "0 auto"},
+                            children=[
+                                html.Div(
+                                    "Select your assigned country",
+                                    style={
+                                        "fontWeight": "800",
+                                        "fontSize": "14px",
+                                        "marginBottom": "8px",
+                                    },
+                                ),
+                                dcc.Dropdown(
+                                    id="onboarding-country",
+                                    options=[
+                                        {"label": c, "value": c}
+                                        for c in sorted(ALL_COUNTRIES)
+                                    ],
+                                    clearable=False,
+                                    placeholder="Choose your assigned country",
+                                ),
+                            ],
                         ),
 
-                        dcc.Dropdown(
-                            id="onboarding-country",
-                            options=[{"label": c, "value": c} for c in sorted(ALL_COUNTRIES)],
-                            value=None,
-                            clearable=False,
-                            placeholder="Choose your assigned country",
+                        html.Div(
+                            style={"textAlign": "center", "marginTop": "26px"},
+                            children=[
+                                dbc.Button(
+                                    "Start Exploring",
+                                    id="onboarding-confirm",
+                                    color="primary",
+                                    size="lg",
+                                    disabled=True,
+                                    style={
+                                        "padding": "10px 34px",
+                                        "fontWeight": "800",
+                                        "fontSize": "16px",
+                                        "borderRadius": "10px",
+                                    },
+                                )
+                            ],
                         ),
-                    ]
-                ),
-
-                dbc.ModalFooter(
-                    dbc.Button(
-                        "Start exploring",
-                        id="onboarding-confirm",
-                        color="primary",
-                        disabled=True,  # enable via callback once country is selected
-                    )
+                    ],
                 ),
             ],
-        )
+        ),
     ],
 )

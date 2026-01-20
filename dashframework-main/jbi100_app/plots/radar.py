@@ -10,29 +10,39 @@ from jbi100_app.state.selection_store import SelectedCountry
 from jbi100_app.data.attributes import attribute_display_label
 
 
-def _rgb_to_rgba(rgb: str, a: float) -> str:
+def _rgb_to_rgba(rgb: str, alpha: float) -> str:
+    """
+    Convert an RGB colour string to RGBA with the given alpha.
+
+    Falls back to a default red if parsing fails.
+    """
     s = (rgb or "").strip()
+
     if s.startswith("rgba("):
         return s
+
     if s.startswith("rgb(") and s.endswith(")"):
         inside = s[4:-1]
         parts = [p.strip() for p in inside.split(",")]
         if len(parts) == 3:
-            return f"rgba({parts[0]},{parts[1]},{parts[2]},{a})"
-    return f"rgba(180,35,24,{a})"
+            return f"rgba({parts[0]},{parts[1]},{parts[2]},{alpha})"
+
+    return f"rgba(180,35,24,{alpha})"
 
 
-def _wrap_label(s: str, max_chars: int = 14) -> str:
+def _wrap_label(label: str, max_chars: int = 14) -> str:
     """
-    Wrap long labels onto 2 lines using <br> so polar tick labels don't get clipped.
+    Wrap long axis labels onto two lines using <br> so that
+    polar tick labels do not get clipped.
     """
-    s = (s or "").strip()
-    if len(s) <= max_chars:
-        return s
+    label = (label or "").strip()
 
-    parts = s.split()
+    if len(label) <= max_chars:
+        return label
+
+    parts = label.split()
     if len(parts) <= 1:
-        return s[:max_chars] + "…"
+        return label[:max_chars] + "…"
 
     mid = max(1, len(parts) // 2)
     return " ".join(parts[:mid]) + "<br>" + " ".join(parts[mid:])
@@ -45,8 +55,36 @@ def build_radar_figure(
     dims_override: list[str] | None = None,
     theme: str = "light",
 ) -> go.Figure:
+    """
+    Build a radar (spider) plot comparing multiple countries across attributes.
+
+    Requirements:
+    - At least 3 selected countries
+    - At least 3 numeric attributes (max 8)
+
+    Parameters
+    ----------
+    df:
+        Source dataframe containing country-level data.
+    ui_category:
+        Currently selected UI category (unused here but kept for API consistency).
+    selection_store:
+        Selected countries with assigned colours.
+    dims_override:
+        Optional explicit list of attributes to plot.
+    theme:
+        Visual theme ("light" or "dark").
+
+    Returns
+    -------
+    go.Figure
+        Configured Plotly radar figure.
+    """
     template = "plotly_dark" if theme == "dark" else "plotly_white"
 
+    # ------------------------------------------------------------
+    # Guard: minimum number of selected countries
+    # ------------------------------------------------------------
     if df is None or df.empty or len(selection_store) < 3:
         fig = go.Figure()
         fig.add_annotation(
@@ -69,13 +107,15 @@ def build_radar_figure(
         )
         return fig
 
-    # Choose dimensions (max 8)
+    # ------------------------------------------------------------
+    # Choose dimensions (maximum of 8)
+    # ------------------------------------------------------------
     if dims_override:
         dims = [d for d in dims_override if d in df.columns][:8]
     else:
         dims = pick_pcp_dims(df, max_dims=8)
 
-    # If user is explicitly controlling dims via sidebar, warn when too few
+    # Explicit user-controlled dimensions but too few
     if dims_override is not None and len(dims) < 3:
         fig = go.Figure()
         fig.add_annotation(
@@ -98,6 +138,7 @@ def build_radar_figure(
         )
         return fig
 
+    # Not enough numeric attributes available
     if len(dims) < 3:
         fig = go.Figure()
         fig.add_annotation(
@@ -107,7 +148,8 @@ def build_radar_figure(
             xref="paper",
             yref="paper",
             showarrow=False,
-            font=dict(size=16, color="var(--text-main"),
+            font=dict(size=16, color="var(--text-main)"),
+            align="center",
         )
         fig.update_layout(
             template=template,
@@ -117,10 +159,16 @@ def build_radar_figure(
         )
         return fig
 
-    mins, maxs = {}, {}
+    # ------------------------------------------------------------
+    # Normalisation bounds per dimension
+    # ------------------------------------------------------------
+    mins: dict[str, float] = {}
+    maxs: dict[str, float] = {}
+
     for d in dims:
         vals = pd.to_numeric(df[d], errors="coerce")
         vals = vals[np.isfinite(vals)]
+
         if vals.size == 0:
             mins[d], maxs[d] = 0.0, 1.0
         else:
@@ -129,54 +177,70 @@ def build_radar_figure(
                 mx = mn + 1.0
             mins[d], maxs[d] = mn, mx
 
-    def norm(v, d):
-        return (float(v) - mins[d]) / (maxs[d] - mins[d])
+    def normalise(value: float, dim: str) -> float:
+        return (float(value) - mins[dim]) / (maxs[dim] - mins[dim])
 
-    theta = [_wrap_label(attribute_display_label(d), max_chars=14) for d in dims]
+    # Axis labels
+    theta = [
+        _wrap_label(attribute_display_label(d), max_chars=14)
+        for d in dims
+    ]
     theta_closed = theta + [theta[0]]
 
     fig = go.Figure()
 
+    # ------------------------------------------------------------
+    # Country traces
+    # ------------------------------------------------------------
     for item in selection_store:
-        cname = item.get("country_name")
+        country_name = item.get("country_name")
         base_rgb = item.get("colour_rgb") or "rgb(180,35,24)"
-        if not cname:
+
+        if not country_name:
             continue
 
-        ck = cname.strip().upper()
-        row = df.loc[df["_CountryKey"] == ck]
+        country_key = country_name.strip().upper()
+        row = df.loc[df["_CountryKey"] == country_key]
 
         if row.empty:
             continue
 
-        r = []
-        ok = True
+        values: list[float] = []
+        valid = True
+
         for d in dims:
             v = pd.to_numeric(row.iloc[0][d], errors="coerce")
             if v is None or not np.isfinite(float(v)):
-                ok = False
+                valid = False
                 break
-            r.append(norm(v, d))
-        if not ok:
+            values.append(normalise(v, d))
+
+        if not valid:
             continue
 
-        r_closed = r + [r[0]]
+        values_closed = values + [values[0]]
 
         fig.add_trace(
             go.Scatterpolar(
-                r=r_closed,
+                r=values_closed,
                 theta=theta_closed,
                 mode="lines",
-                line=dict(color=_rgb_to_rgba(base_rgb, 0.95), width=2),
+                line=dict(
+                    color=_rgb_to_rgba(base_rgb, 0.95),
+                    width=2,
+                ),
                 fill="toself",
                 fillcolor=_rgb_to_rgba(base_rgb, 0.25),
                 showlegend=False,
             )
         )
 
+    # ------------------------------------------------------------
+    # Layout
+    # ------------------------------------------------------------
     fig.update_layout(
         template=template,
-        margin=dict(l=40, r=40, t=30, b=40),  # ✅ extra breathing room prevents cut-off
+        margin=dict(l=40, r=40, t=30, b=40),
         title=None,
         showlegend=False,
         polar=dict(
@@ -187,9 +251,10 @@ def build_radar_figure(
                 tickfont=dict(size=10),
             ),
             angularaxis=dict(
-                tickfont=dict(size=10),  # ✅ helps fit 8 labels
+                tickfont=dict(size=10),
             ),
             bgcolor="rgba(0,0,0,0)",
         ),
     )
+
     return fig

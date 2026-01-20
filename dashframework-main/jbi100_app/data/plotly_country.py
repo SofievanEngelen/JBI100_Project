@@ -5,22 +5,29 @@ import pandas as pd
 
 from jbi100_app.data.data_loader import DATA_INFO, UN_COUNTRIES
 
-# ============================================================
-# Helpers: naming + plotly country mapping
+
+# =============================================================================
+# Helpers: naming and Plotly country mapping
 # (moved from visualisation_callbacks.py)
-# ============================================================
+# =============================================================================
 
 _META_FALLBACK_COLS = ["Country", "Region", "Continent"]
 
-def _canon_un_name(x: str) -> str:
-    if x is None:
+
+def _canon_un_name(name: str) -> str:
+    """
+    Convert a country name to a canonical UN-style uppercase form.
+    """
+    if name is None:
         return ""
-    s = str(x).strip().upper()
+
+    s = str(name).strip().upper()
     s = " ".join(s.split())
     return s
 
 
-_UN_TO_PLOTLY_FIX = {
+# Explicit fixes where UN naming does not match Plotly expectations
+_UN_TO_PLOTLY_FIX: dict[str, str] = {
     "UNITED STATES": "United States",
     "UNITED KINGDOM": "United Kingdom",
     "COTE D'IVOIRE": "Côte d'Ivoire",
@@ -41,34 +48,51 @@ _UN_TO_PLOTLY_FIX = {
 
 _SMALL_WORDS = {"of", "the", "and", "to", "in", "on", "for"}
 
-def _smart_title(s: str) -> str:
-    parts = s.lower().split()
-    out = []
-    for i, w in enumerate(parts):
-        if i > 0 and w in _SMALL_WORDS:
-            out.append(w)
+
+def _smart_title(text: str) -> str:
+    """
+    Title-case a country name while keeping short connector words lower-case.
+    """
+    parts = text.lower().split()
+    out: list[str] = []
+
+    for i, word in enumerate(parts):
+        if i > 0 and word in _SMALL_WORDS:
+            out.append(word)
         else:
-            out.append(w[:1].upper() + w[1:])
+            out.append(word[:1].upper() + word[1:])
+
     return " ".join(out)
 
+
 def _un_to_plotly_name(un_name: str) -> str:
+    """
+    Convert a canonical UN country name to a Plotly-compatible country name.
+    """
     un = _canon_un_name(un_name)
     if not un:
         return ""
+
     if un in _UN_TO_PLOTLY_FIX:
         return _UN_TO_PLOTLY_FIX[un]
+
+    # Remove parenthetical qualifiers
     if "(" in un:
         un = un.split("(", 1)[0].strip()
+
+    # Convert "X, Y" → "Y X"
     if "," in un:
         left, right = [p.strip() for p in un.split(",", 1)]
         un = f"{right} {left}".strip()
+
     return _smart_title(un)
 
 
-# ============================================================
+# =============================================================================
 # ISO-3 overrides for microstates
-# ============================================================
-ISO3_OVERRIDES = {
+# =============================================================================
+
+ISO3_OVERRIDES: dict[str, str] = {
     "ANDORRA": "AND",
     "ANTIGUA AND BARBUDA": "ATG",
     "BARBADOS": "BRB",
@@ -89,39 +113,55 @@ ISO3_OVERRIDES = {
     "TUVALU": "TUV",
 }
 
+
 def _to_iso3(country_name: str) -> str | None:
+    """
+    Return an ISO-3 country code override for known microstates.
+    """
     if not country_name:
         return None
+
     key = _canon_un_name(country_name)
     return ISO3_OVERRIDES.get(key)
 
 
+# =============================================================================
+# Public API
+# =============================================================================
+
 def get_plot_df() -> pd.DataFrame:
     """
-    Returns a copy of DATA_INFO with required derived columns for Plotly:
-      - _UN_NAME (canonical uppercase)
-      - filtered to UN_COUNTRIES
-      - _PLOTLY_NAME (name matching plotly choropleth 'country names')
-      - _ISO3 (iso-3 for microstates)
+    Return a Plotly-ready dataframe derived from DATA_INFO.
+
+    Adds the following derived columns:
+    - _UN_NAME:
+        Canonical UN-style uppercase country name.
+    - _PLOTLY_NAME:
+        Country name matching Plotly choropleth expectations.
+    - _ISO3:
+        ISO-3 code for microstates (where required).
+
+    The dataframe is filtered to UN member states only.
     """
     if DATA_INFO is None or getattr(DATA_INFO, "empty", True):
         return pd.DataFrame(columns=_META_FALLBACK_COLS)
 
     df = DATA_INFO.copy()
 
-    # Ensure expected meta cols exist
-    for c in _META_FALLBACK_COLS:
-        if c not in df.columns:
-            df[c] = "Unknown"
+    # Ensure required metadata columns exist
+    for col in _META_FALLBACK_COLS:
+        if col not in df.columns:
+            df[col] = "Unknown"
 
     df["Country"] = df["Country"].astype(str)
 
+    # Canonical UN name
     df["_UN_NAME"] = df["Country"].map(_canon_un_name)
 
-    # Filter to UN list
+    # Filter to UN member states
     df = df[df["_UN_NAME"].isin(UN_COUNTRIES)].copy()
 
-    # Derived plotly naming + iso3
+    # Derived Plotly naming and ISO-3 codes
     df["_PLOTLY_NAME"] = df["Country"].map(_un_to_plotly_name)
     df["_ISO3"] = df["Country"].map(_to_iso3)
 

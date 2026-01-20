@@ -1,6 +1,6 @@
-/* ===========================
+/* ============================================================
    GLOBAL (minimal, stable)
-=========================== */
+============================================================ */
 html, body {
     height: 100%;
     margin: 0;
@@ -10,105 +10,218 @@ html, body {
 
 body {
     font-family: Arial, sans-serif;
-    background-color: #f4f6fb;
+    background-color: var(--bg-main);
+    color: var(--text-main);
 }
 
-/* ===========================
-   REMOVE ALL LEGACY / MAP-SPECIFIC UI
-   (search bar, tabs, side panels, data-view remnants)
-=========================== */
-/* Intentionally empty:
-   - #map-search-container
-   - #top-tabs / .top-tab
-   - #mun-map selectors
-   - #map-left-panel / #map-right-panel
-   - data/map nav buttons
-   These are deleted by design to avoid layout & interaction conflicts.
-*/
+/* ============================================================
+   THEME VARIABLES
+============================================================ */
 
-/* ===========================
-   BASIC BUTTON (used only if referenced)
-=========================== */
-button {
-    font-family: inherit;
+/* Light theme (default) */
+:root {
+    --bg-main: #f6f7fb;
+    --bg-panel: #ffffff;
+    --bg-card: #ffffff;
+    --bg-input: #ffffff;
+
+    --text-main: #1f2937;
+    --text-muted: #6b7280;
+    --text-strong: #111827;
+
+    --border: rgba(148,163,184,0.35);
+    --accent: #2563eb;
 }
 
-/* ===========================
-   DASH GRAPH CONTAINERS
-=========================== */
+/* Dark theme */
+[data-theme="dark"] {
+    --bg-main: #141414;
+    --bg-panel: #1f1f1f;
+    --bg-card: #1f1f1f;
+    --bg-input: #262626;
+
+    --text-main: #e5e7eb;
+    --text-muted: #9ca3af;
+    --text-strong: #f9fafb;
+
+    --border: rgba(255,255,255,0.15);
+    --accent: #60a5fa;
+}
+
+/* ============================================================
+   DASH / PLOTLY CONTAINERS
+============================================================ */
 .js-plotly-plot {
     width: 100%;
 }
 
-/* ===========================
-   CARD-LIKE HELPERS (fallback)
-   Most card styling is inline in layout.py
-=========================== */
-.card {
-    background: white;
-    border: 1px solid rgba(0,0,0,0.08);
-    border-radius: 16px;
-    box-shadow: 0 10px 24px rgba(16,24,40,0.06);
-    padding: 14px;
+.js-plotly-plot .plotly {
+    background: transparent !important;
+}
+
+/* Ensure graphs fill their containers */
+.vis-plot-wrap .dash-graph {
+    height: 100%;
+}
+
+.vis-plot-wrap .js-plotly-plot,
+.vis-plot-wrap .plotly,
+.vis-plot-wrap .svg-container {
+    height: 100% !important;
+    width: 100% !important;
+}
+
+/* Prevent app-level scroll bleed */
+#react-entry-point,
+._dash-app-content {
+    height: 100%;
+    overflow: hidden;
+}
+
+/* ============================================================
+   VISUALISATION PANELS
+============================================================ */
+.vis-panel {
+    height: 100%;
+    width: 100%;
+    background: var(--bg-panel);
+    border-radius: 18px;
+    padding: 18px 22px;
+    box-sizing: border-box;
+
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.vis-plot-wrap {
+    background: var(--bg-card);
+    border-radius: 10px;
+    padding: 10px;
+    box-sizing: border-box;
+
+    flex: 1;
+    min-height: 0;
+}
+
+/* Section labels */
+.vis-label {
+    font-size: 34px;
+    font-weight: 800;
+    color: var(--text-main);
+    margin: 0;
+    line-height: 1.05;
+}
+
+/* Dropdown helpers */
+.vis-dropdown {
+    width: 100%;
+}
+
+.vis-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+}
+
+/* ============================================================
+   SIDEBAR
+============================================================ */
+.sidebar-card {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow-y: auto;
+    color: var(--text-main);
+}
+
+/* Dark mode sidebar text tweaks */
+[data-theme="dark"] .sidebar-card {
+    color: #e5e7eb;
+}
+
+[data-theme="dark"] .sidebar-card h1,
+[data-theme="dark"] .sidebar-card h2,
+[data-theme="dark"] .sidebar-card h3,
+[data-theme="dark"] .sidebar-card h4,
+[data-theme="dark"] .sidebar-card h5 {
+    color: var(--text-strong);
+}
+
+[data-theme="dark"] .sidebar-card #vis-warnings {
+    color: #fca5a5;
+}
+
+/* ============================================================
+   ATTRIBUTE LOOKUP PANEL
+============================================================ */
+#attr-lookup-panel h4,
+#attr-lookup-panel h5 {
+    color: var(--text-main);
+    margin-bottom: 4px;
+}
+
+#attr-lookup-panel p,
+#attr-lookup-panel li {
+    color: var(--text-muted);
+}
+
+/* ============================================================
+   DASH DROPDOWNS / INPUTS
+============================================================ */
+.Select-control,
+.Select-menu-outer,
+.Select-menu,
+.VirtualizedSelectOption {
+    background-color: var(--bg-input) !important;
+    color: var(--text-main) !important;
+    border-color: var(--border) !important;
+}
+
+.Select-placeholder,
+.Select-value-label {
+    color: var(--text-main) !important;
+}
+
+/* Placeholder text */
+.Select-placeholder {
+    color: var(--text-muted) !important;
+    font-weight: 400;
+}
+
+.is-focused .Select-placeholder {
+    color: var(--text-muted) !important;
+}
+
+/* Multi-select wrapping */
+.Select--multi .Select-multi-value-wrapper {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    align-items: center;
+}
+
+.Select--multi .Select-input {
+    height: 34px;
+    margin: 2px 0;
+}
+
+/* Dropdown option spacing */
+.VirtualizedSelectOption {
+    line-height: 1.25 !important;
+    padding: 8px 12px !important;
+    white-space: normal !important;
+    display: flex;
+    align-items: center;
     box-sizing: border-box;
 }
 
-/* ===========================
-   TEXT HELPERS
-=========================== */
-.small-muted {
-    font-size: 12px;
-    color: #516074;
+.VirtualizedSelectOption:hover {
+    background-color: rgba(255,255,255,0.06) !important;
 }
 
-.warning-text {
-    font-size: 12px;
-    color: #b42318;
-}
-
-.vis-panel{
-  height: 100%;
-  width: 100%;
-  background: white;
-  border-radius: 18px;
-  padding: 18px 22px;
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-/* section labels */
-.vis-label{
-  font-size: 34px;
-  font-weight: 800;
-  color: #3a3a3a;
-  margin: 0;
-  line-height: 1.05;
-}
-
-/* dropdown styling space */
-.vis-dropdown{
-  width: 100%;
-}
-
-/* 2 dropdowns side-by-side */
-.vis-row-2{
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 18px;
-}
-
-/* plot window (white card inside grey panel) */
-.vis-plot-wrap{
-  background: white;
-  border-radius: 10px;
-  padding: 10px;
-  box-sizing: border-box;
-  flex: 1;              /* IMPORTANT: fills remaining height */
-  min-height: 0;        /* IMPORTANT: prevents overflow in flex */
-}
-
+/* ============================================================
+   SLIDER (Histogram bins)
+============================================================ */
 .rc-slider-mark {
     top: -22px;
 }
@@ -116,239 +229,184 @@ button {
 .rc-slider-mark-text {
     font-size: 12px;
     font-weight: 600;
-    color: #6b7280;
-}
-
-/* make plotly graph obey the container and not create scroll */
-.vis-plot-wrap .dash-graph{
-  height: 100%;
-}
-.vis-plot-wrap .js-plotly-plot,
-.vis-plot-wrap .plotly,
-.vis-plot-wrap .svg-container{
-  height: 100% !important;
-  width: 100% !important;
-}
-#react-entry-point, ._dash-app-content {
-  height: 100%;
-  overflow: hidden;
-}
-
-/* ===========================
-   RESPONSIVE SIDEBAR
-   - Sidebar grows with content
-   - If it exceeds the viewport, it scrolls internally (no overlap)
-=========================== */
-.sidebar-card{
-  display:flex;
-  flex-direction:column;
-  /*gap:10px;*/
-  min-height:0;
-  overflow-y:auto;
-}
-
-.Select-control{
-  height: auto !important;
-  min-height: 38px;   /* keep the nice default height when empty/1-line */
-}
-
-/* Ensure selected values wrap onto new lines */
-.Select--multi .Select-multi-value-wrapper{
-  display: flex !important;
-  flex-wrap: wrap !important;
-  align-items: center;
-}
-
-/* Keep the input line aligned nicely within the wrapping container */
-.Select--multi .Select-input{
-  height: 34px;
-  margin-top: 2px;
-  margin-bottom: 2px;
-}
-
-/* ─────────────────────────────
-   Light theme (default)
-   ───────────────────────────── */
-:root {
-  --bg-main: #f6f7fb;
-  --bg-panel: #ffffff;
-  --bg-card: #ffffff;
-  --bg-input: #ffffff;
-
-  --text-main: #1f2937;
-  --text-muted: #6b7280;
-
-  --border: rgba(148,163,184,0.35);
-}
-
-
-/* ─────────────────────────────
-   Dark theme
-   ───────────────────────────── */
-[data-theme="dark"] {
-  --bg-main: #141414;
-  --bg-panel: #1F1F1F;
-  --bg-card: #1F1F1F;
-  --bg-input: #262626;     /* dropdowns */
-
-  --text-main: #e5e7eb;
-  --text-muted: #9ca3af;
-  --text-strong: #f9fafb;
-
-  --border: rgba(255,255,255,0.15);
-}
-
-.modal-backdrop {
-  z-index: 1000 !important;
-}
-
-.modal {
-  z-index: 1100 !important;
-}
-
-
-/* ─────────────────────────────
-   DASH DROPDOWNS / INPUTS
-   ───────────────────────────── */
-.Select-control,
-.Select-menu-outer,
-.Select-menu,
-.VirtualizedSelectOption {
-  background-color: var(--bg-input) !important;
-  color: var(--text-main) !important;
-  border-color: var(--border) !important;
-}
-
-.Select-placeholder,
-.Select-value-label {
-  color: var(--text-main) !important;
-}
-
-.VirtualizedSelectOption:hover {
-  background-color: rgba(255,255,255,0.06) !important;
-}
-
-.is-focused:not(.is-open) > .Select-control {
-  border-color: rgba(99,102,241,0.6) !important;
-}
-
-
-/* ─────────────────────────────
-   PLOTLY FIXES
-   ───────────────────────────── */
-.js-plotly-plot .plotly {
-  background: transparent !important;
-}
-
-
-/* ─────────────────────────────
-   SCROLLBARS (optional polish)
-   ───────────────────────────── */
-[data-theme="dark"] ::-webkit-scrollbar {
-  width: 10px;
-}
-
-[data-theme="dark"] ::-webkit-scrollbar-thumb {
-  background: rgba(255,255,255,0.15);
-  border-radius: 8px;
+    color: var(--text-muted);
 }
 
 /* ============================================================
-   DARK MODE — Sidebar text
-   ============================================================ */
-
-/* General sidebar text */
-[data-theme="dark"] .sidebar-card {
-  color: #e5e7eb; /* light grey */
+   MODALS
+============================================================ */
+.modal-backdrop {
+    z-index: 1000 !important;
+    background-color: transparent !important;
 }
 
-/* Section headers */
-[data-theme="dark"] .sidebar-card h1,
-[data-theme="dark"] .sidebar-card h2,
-[data-theme="dark"] .sidebar-card h3,
-[data-theme="dark"] .sidebar-card h4,
-[data-theme="dark"] .sidebar-card h5 {
-  color: #f9fafb; /* near-white */
+.modal {
+    z-index: 1100 !important;
 }
 
-/* Small labels (e.g. "Select Country", "Select Scale") */
-[data-theme="dark"] .sidebar-card label,
-[data-theme="dark"] .sidebar-card div {
-  color: #d1d5db;
+.onboarding-modal {
+    z-index: 2000 !important;
 }
 
-/* Muted / helper text */
-[data-theme="dark"] .sidebar-card .text-muted {
-  color: #9ca3af;
+.onboarding-modal .modal-content {
+    border-radius: 18px;
+    border: none;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.3);
 }
 
-/* Warning text (keep readable but softer) */
-[data-theme="dark"] .sidebar-card #vis-warnings {
-  color: #fca5a5;
+/* Blur app behind onboarding */
+body.modal-open #app-root {
+    filter: blur(6px);
+    pointer-events: none;
+    user-select: none;
 }
 
-/* Buttons */
-[data-theme="dark"] .sidebar-card button {
-  color: #e5e7eb;
+/* ============================================================
+   ONBOARDING UI
+============================================================ */
+.ob-root {
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    background: #f5f7fb;
+    padding: 14px;
 }
 
-/* Attribute lookup panel */
-#attr-lookup-panel h4,
-#attr-lookup-panel h5 {
-  color: var(--text-main);
-  margin-bottom: 4px;
+.ob-card {
+    width: min(980px, 100%);
+    background: #ffffff;
+    border-radius: 14px;
+    padding: 16px 20px;
+    box-shadow: 0 12px 28px rgba(17,24,39,0.10);
 }
 
-#attr-lookup-panel p,
-#attr-lookup-panel li {
-  color: var(--text-muted);
+.ob-title {
+    margin: 0 0 10px 0;
+    font-size: 28px;
+    font-weight: 900;
 }
 
-:root {
-  --accent: #2563eb;
+.ob-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 14px 18px;
 }
 
-[data-theme="dark"] {
-  --accent: #60a5fa;
+@media (max-width: 860px) {
+    .ob-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
-/* ===========================
-   DASH DROPDOWN OPTION SPACING
-=========================== */
+.ob-h2 {
+    font-size: 14px;
+    font-weight: 900;
+    margin: 6px 0;
+}
 
-/* Force a taller row height */
+.ob-actions {
+    margin-top: 12px;
+    display: flex;
+    gap: 10px;
+}
+
+.ob-btn-primary {
+    padding: 10px 14px;
+    border-radius: 12px;
+    border: 1px solid #1d4ed8;
+    background: #2563eb;
+    color: #ffffff;
+    font-size: 13px;
+    font-weight: 900;
+    cursor: pointer;
+}
+
+/* ============================================================
+   CLEAR FILTER BUTTON
+============================================================ */
+.clear-filter-btn {
+    height: 38px;
+    padding: 0 30px;
+    border: 1px solid #bbb;
+    background-color: #eee;
+    font-weight: 600;
+}
+
+.clear-filter-btn:hover {
+    background: #c4c4c4;
+}
+
+/* Dark mode */
+[data-theme="dark"] .clear-filter-btn {
+    background: #2f2f2f;
+    color: #f9fafb;
+    border-color: rgba(255,255,255,0.2);
+}
+
+[data-theme="dark"] .clear-filter-btn:hover {
+    background: #3a3a3a;
+}
+
+/* ============================================================
+   DASH DROPDOWN OPTION STYLING (RESTORED)
+============================================================ */
+
+/* Menu container */
+.Select-menu-outer {
+  border-radius: 10px;
+  box-shadow: 0 10px 24px rgba(16,24,40,0.12);
+  overflow: hidden;
+}
+
+/* Individual option rows */
 .VirtualizedSelectOption {
-  line-height: 1.25 !important;
-  padding: 8px 12px !important;
-  white-space: normal !important;
+  padding: 10px 14px !important;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.35;
+  cursor: pointer;
+
   display: flex;
   align-items: center;
-  box-sizing: border-box;
+
+  background-color: var(--bg-input);
+  color: var(--text-main);
 }
 
-/* Allow text to wrap */
-.VirtualizedSelectOption span,
-.VirtualizedSelectOption div {
-  white-space: normal !important;
+/* Hover */
+.VirtualizedSelectOption:hover {
+  background-color: rgba(37, 99, 235, 0.08) !important;
 }
 
-
-/* =========================================
-   Dropdown placeholder text (lighter)
-   ========================================= */
-
-/* Placeholder text */
-.Select-placeholder {
-  color: var(--text-muted) !important;
-  font-weight: 400;
+/* Selected option */
+.VirtualizedSelectOption.is-selected {
+  background-color: rgba(37, 99, 235, 0.15) !important;
+  font-weight: 700;
 }
 
-/* When dropdown is focused but empty */
-.is-focused .Select-placeholder {
-  color: var(--text-muted) !important;
+/* Disabled option */
+.VirtualizedSelectOption.is-disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
-/* Dark mode fine-tuning */
-[data-theme="dark"] .Select-placeholder {
-  color: #9ca3af !important; /* light grey */
+[data-theme="dark"] .VirtualizedSelectOption:hover {
+  background-color: rgba(96, 165, 250, 0.15) !important;
+}
+
+[data-theme="dark"] .VirtualizedSelectOption.is-selected {
+  background-color: rgba(96, 165, 250, 0.25) !important;
+}
+
+/* ============================================================
+   SCROLLBARS (optional polish)
+============================================================ */
+[data-theme="dark"] ::-webkit-scrollbar {
+    width: 10px;
+}
+
+[data-theme="dark"] ::-webkit-scrollbar-thumb {
+    background: rgba(255,255,255,0.15);
+    border-radius: 8px;
 }

@@ -1,12 +1,18 @@
+from __future__ import annotations
+
 from dash import html, dcc
 import dash_bootstrap_components as dbc
 
 
-def layout():
+def layout() -> html.Div:
     """
-    Minimal navigation menu for Final Report.
-    Single entry point to the visualization tool.
-    Includes dark mode toggle.
+    Top navigation bar for the application.
+
+    Provides:
+    - App title (left)
+    - Dark mode toggle switch (right)
+
+    This component is intentionally minimal and stateless.
     """
     return html.Div(
         style={
@@ -21,9 +27,11 @@ def layout():
             "zIndex": 2000,
         },
         children=[
-            # ── Left: title
+            # ─────────────────────────────────────────────
+            # Left: Application title
+            # ─────────────────────────────────────────────
             html.Div(
-                "JBI100 Visualization Tool",
+                "MUN Digital Debate Coach",
                 style={
                     "fontWeight": 900,
                     "fontSize": "14px",
@@ -31,7 +39,9 @@ def layout():
                 },
             ),
 
-            # ── Right: nav + dark mode toggle
+            # ─────────────────────────────────────────────
+            # Right: Navigation + theme toggle
+            # ─────────────────────────────────────────────
             html.Div(
                 style={
                     "display": "flex",
@@ -39,17 +49,6 @@ def layout():
                     "gap": "16px",
                 },
                 children=[
-                    dcc.Link(
-                        "Visualisation",
-                        href="/vis",
-                        style={
-                            "fontWeight": 800,
-                            "fontSize": "13px",
-                            "color": "#2b66e3",
-                            "textDecoration": "none",
-                        },
-                    ),
-
                     dbc.Switch(
                         id="theme-toggle",
                         label="Dark mode",
