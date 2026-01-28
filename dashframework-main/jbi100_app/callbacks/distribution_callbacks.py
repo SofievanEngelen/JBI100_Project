@@ -200,6 +200,7 @@ def update_violin(
         df=df,
         metric=metric,
         geo_scale=geo_scale or "global",
+        geo_scope=geo_scope,
         in_mask=in_mask,
         selection_store=selection_store,
         theme=theme,

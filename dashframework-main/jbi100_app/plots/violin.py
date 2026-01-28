@@ -20,105 +20,66 @@ def build_violin_figure(
     df: pd.DataFrame,
     metric: str,
     geo_scale: str,
+    geo_scope: str | None,
     in_mask: pd.Series,
     selection_store: list[SelectedCountry],
     theme: str = "light",
 ) -> go.Figure:
     """
-    Build a horizontal violin plot for a single metric.
-
-    The plot shows:
-    - the in-scope distribution (continent / region or global)
-    - an optional out-of-scope distribution (faded), if applicable
+    Build a horizontal violin plot showing:
+    - the global distribution (always)
+    - the selected region / continent distribution (if active),
+      stacked above the global one
     - vertical reference lines for selected countries
-
-    Parameters
-    ----------
-    df:
-        Source dataframe containing country-level data.
-    metric:
-        Column name to visualise.
-    geo_scale:
-        Current geographic scale ("global", "continent", or "region").
-    in_mask:
-        Boolean mask indicating which rows are in scope.
-    selection_store:
-        List of selected countries with assigned colours.
-    theme:
-        Visual theme ("light" or "dark").
-
-    Returns
-    -------
-    go.Figure
-        A configured Plotly violin plot.
     """
     template = "plotly_dark" if theme == "dark" else "plotly_white"
-
     fig = go.Figure()
 
-    # Defensive early exit for invalid inputs
+    # ------------------------------------------------------------
+    # Defensive exit
+    # ------------------------------------------------------------
     if df is None or df.empty or not metric or metric not in df.columns:
-        fig.update_layout(
-            template=template,
-            margin=dict(l=0, r=0, t=0, b=0),
-            title=None,
-        )
+        fig.update_layout(template=template)
         return fig
 
     geo_scale = (geo_scale or "global").lower().strip()
+
     scope_active = (
         geo_scale in ("continent", "region")
         and in_mask is not None
         and len(in_mask) == len(df)
+        and in_mask.any()
+        and (~in_mask).any()
     )
 
-    # Split in-scope and out-of-scope data
-    in_df = df.loc[in_mask].copy() if scope_active else df.copy()
-    out_df = df.loc[~in_mask].copy() if scope_active else df.iloc[0:0].copy()
+    # ------------------------------------------------------------
+    # Prepare data
+    # ------------------------------------------------------------
+    global_vals = coerce_numeric(df[metric]).to_numpy(dtype=float)
+    global_vals = global_vals[np.isfinite(global_vals)]
 
-    # Coerce and clean in-scope values
-    in_vals = coerce_numeric(in_df[metric]).to_numpy(dtype=float)
-    in_vals = in_vals[np.isfinite(in_vals)]
+    if scope_active:
+        scope_vals = coerce_numeric(df.loc[in_mask, metric]).to_numpy(dtype=float)
+        scope_vals = scope_vals[np.isfinite(scope_vals)]
+    else:
+        scope_vals = np.array([])
 
-    if in_vals.size == 0:
-        fig.update_layout(
-            template=template,
-            margin=dict(l=0, r=0, t=0, b=0),
-            title=None,
-        )
+    if global_vals.size == 0:
+        fig.update_layout(template=template)
         return fig
 
-    # Coerce and clean out-of-scope values
-    out_vals = coerce_numeric(out_df[metric]).to_numpy(dtype=float)
-    out_vals = out_vals[np.isfinite(out_vals)]
+    global_label = "Global"
+    scope_label = f"{geo_scale.capitalize()}:<br> {geo_scope.capitalize() if geo_scale in ['continent', 'region'] else ''}"
 
-    # --------------------------------------------------------------
-    # Out-of-scope distribution (faded)
-    # --------------------------------------------------------------
-    if scope_active and out_vals.size > 0:
-        fig.add_trace(
-            go.Violin(
-                x=out_vals,
-                orientation="h",
-                box_visible=True,
-                meanline_visible=False,
-                points=False,
-                line_color=FADED_GREY_15,
-                fillcolor=FADED_GREY_10,
-                hoverinfo="skip",
-                showlegend=False,
-            )
-        )
-
-    # --------------------------------------------------------------
-    # In-scope distribution
-    # --------------------------------------------------------------
+    # ------------------------------------------------------------
+    # Global violin
+    # ------------------------------------------------------------
     fig.add_trace(
         go.Violin(
-            x=in_vals,
+            x=global_vals,
+            y=[global_label] * len(global_vals),
             orientation="h",
             box_visible=True,
-            meanline_visible=False,
             points=False,
             line_color=BASE_GREY_35,
             fillcolor=BASE_GREY_12,
@@ -127,9 +88,27 @@ def build_violin_figure(
         )
     )
 
-    # --------------------------------------------------------------
+    # ------------------------------------------------------------
+    # Regional / continent violin (on top)
+    # ------------------------------------------------------------
+    if scope_active and scope_vals.size > 0:
+        fig.add_trace(
+            go.Violin(
+                x=scope_vals,
+                y=[scope_label] * len(scope_vals),
+                orientation="h",
+                box_visible=True,
+                points=False,
+                line_color=BASE_GREY_35,
+                fillcolor=BASE_GREY_12,
+                hoverinfo="skip",
+                showlegend=False,
+            )
+        )
+
+    # ------------------------------------------------------------
     # Selected country reference lines
-    # --------------------------------------------------------------
+    # ------------------------------------------------------------
     for item in selection_store:
         country_name = item.get("country_name")
         colour = item.get("colour_rgb") or "rgb(180,35,24)"
@@ -152,16 +131,23 @@ def build_violin_figure(
             opacity=0.95,
         )
 
-    # --------------------------------------------------------------
+    # ------------------------------------------------------------
     # Layout
-    # --------------------------------------------------------------
+    # ------------------------------------------------------------
     fig.update_layout(
         template=template,
         margin=dict(l=0, r=0, t=0, b=0),
         title=None,
         xaxis=dict(title=attribute_display_label(metric)),
-        yaxis=dict(showticklabels=False),
+        yaxis=dict(
+            title=None,
+            categoryorder="array",
+            categoryarray=[scope_label, global_label]
+            if scope_active
+            else [global_label],
+        ),
         showlegend=False,
     )
 
     return fig
+
